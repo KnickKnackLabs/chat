@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #MISE description="Send a message to the chat channel"
-#USAGE flag "--from <from>" help="Your agent name" required=true
+#USAGE flag "--from <from>" help="Your agent name"
 #USAGE arg "<message>" help="The message to send (or - for stdin)"
 set -eo pipefail
 
@@ -8,7 +8,7 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$REPO_DIR/lib/chat.sh"
 chat_init
 
-from="${usage_from}"
+from="${usage_from:?Usage: chat send --from AGENT_NAME \"message\"}"
 message="${usage_message}"
 
 # Read from stdin if message is "-"

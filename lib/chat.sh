@@ -38,7 +38,13 @@ chat_get_cursor() {
 # Set the cursor for an agent to current line count
 chat_set_cursor() {
   local agent="$1"
-  chat_line_count > "$CHAT_CURSOR_DIR/$agent"
+  if [ -z "$agent" ]; then
+    echo "Error: agent name required for chat_set_cursor" >&2
+    return 1
+  fi
+  local count
+  count=$(chat_line_count)
+  printf '%s' "$count" > "$CHAT_CURSOR_DIR/$agent"
 }
 
 # Format a timestamp

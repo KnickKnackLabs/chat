@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #MISE description="Wait for a new message addressed to you"
-#USAGE flag "--for <name>" help="Your agent name" required=true
+#USAGE flag "--for <for>" help="Your agent name"
 #USAGE flag "--timeout <seconds>" help="Max seconds to wait (0 = forever)" default="120"
 set -eo pipefail
 
@@ -8,7 +8,7 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$REPO_DIR/lib/chat.sh"
 chat_init
 
-agent="${usage_for}"
+agent="${usage_for:?Usage: chat wait --for AGENT_NAME}"
 timeout="${usage_timeout:-120}"
 
 # Record where we are now
