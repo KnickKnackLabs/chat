@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+#MISE description="Mark messages as read (update your cursor)"
+#USAGE flag "--for <agent>" help="Your agent name" required=true
+set -eo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_DIR/lib/chat.sh"
+chat_init
+
+agent="${usage_for}"
+chat_set_cursor "$agent"
+echo "Marked all messages as read for @${agent}."

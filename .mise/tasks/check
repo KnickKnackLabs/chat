@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+#MISE description="Check for new messages"
+#USAGE flag "--for <agent>" help="Your agent name" required=true
+#USAGE flag "--mark-read" help="Mark messages as read after showing"
+set -eo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_DIR/lib/chat.sh"
+chat_init
+
+agent="${usage_for}"
+count=$(chat_count_new "$agent")
+
+if [ "$count" = "0" ]; then
+  echo "No new messages."
+  exit 0
+fi
+
+echo "$count new message(s):"
+echo ""
+chat_new_messages "$agent"
+
+if [ "${usage_mark_read:-}" = "true" ]; then
+  chat_set_cursor "$agent"
+  echo ""
+  echo "(Marked as read)"
+fi

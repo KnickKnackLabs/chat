@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+#MISE description="Show recent chat history"
+#USAGE flag "--limit <lines>" help="Number of lines to show" default="50"
+set -eo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_DIR/lib/chat.sh"
+chat_init
+
+limit="${usage_limit:-50}"
+
+if [ ! -f "$CHAT_FILE" ]; then
+  echo "No chat history."
+  exit 0
+fi
+
+tail -n "$limit" "$CHAT_FILE"

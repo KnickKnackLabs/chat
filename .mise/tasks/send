@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+#MISE description="Send a message to the chat channel"
+#USAGE flag "--from <from>" help="Your agent name" required=true
+#USAGE arg "<message>" help="The message to send (or - for stdin)"
+set -eo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_DIR/lib/chat.sh"
+chat_init
+
+from="${usage_from}"
+message="${usage_message}"
+
+# Read from stdin if message is "-"
+if [ "$message" = "-" ]; then
+  message=$(cat)
+fi
+
+if [ -z "$message" ]; then
+  echo "Error: message cannot be empty" >&2
+  exit 1
+fi
+
+chat_append "$from" "$message"
+echo "Sent."
