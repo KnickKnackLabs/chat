@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #MISE description="Wait for a new message addressed to you"
-#USAGE flag "--for <agent>" help="Your agent name" required=true
+#USAGE flag "--for <name>" help="Your agent name" required=true
 #USAGE flag "--timeout <seconds>" help="Max seconds to wait (0 = forever)" default="120"
 set -eo pipefail
 

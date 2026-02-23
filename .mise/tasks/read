@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #MISE description="Mark messages as read (update your cursor)"
-#USAGE flag "--for <agent>" help="Your agent name" required=true
+#USAGE flag "--for <name>" help="Your agent name" required=true
 set -eo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
