@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Show new messages and mark as read"
 #USAGE flag "--for <for>" help="Your agent name" required=#true
+#USAGE flag "--all" help="Show all messages, not just unread"
 set -eo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -8,13 +9,18 @@ source "$REPO_DIR/lib/chat.sh"
 chat_init
 
 agent="$usage_for"
-count=$(chat_count_new "$agent")
 
-if [ "$count" = "0" ]; then
-  echo "No new messages."
+if [ "${usage_all:-}" = "true" ]; then
+  # Show full log (skip the header/separator)
+  tail -n +7 "$CHAT_FILE"
 else
-  chat_new_messages "$agent"
-  echo ""
+  count=$(chat_count_new "$agent")
+  if [ "$count" = "0" ]; then
+    echo "No new messages."
+  else
+    chat_new_messages "$agent"
+  fi
 fi
 
+echo ""
 chat_set_cursor "$agent"
