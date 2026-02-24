@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Mark messages as read (update your cursor)"
+#MISE description="Show new messages and mark as read"
 #USAGE flag "--for <for>" help="Your agent name" required=#true
 set -eo pipefail
 
@@ -8,5 +8,13 @@ source "$REPO_DIR/lib/chat.sh"
 chat_init
 
 agent="$usage_for"
+count=$(chat_count_new "$agent")
+
+if [ "$count" = "0" ]; then
+  echo "No new messages."
+else
+  chat_new_messages "$agent"
+  echo ""
+fi
+
 chat_set_cursor "$agent"
-echo "Marked all messages as read for @${agent}."
