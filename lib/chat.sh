@@ -2,13 +2,30 @@
 # chat.sh — shared helpers for the agent chat CLI
 
 CHAT_DATA_DIR="${CHAT_DATA_DIR:-$HOME/.local/share/chat}"
-CHAT_DEFAULT="den"
+
+# Detect chat name from git remote origin of the caller's directory
+# Returns org-repo (slashes replaced with -) or empty string
+_chat_detect_repo() {
+  local dir="${CALLER_PWD:-$PWD}"
+  local url
+  url=$(git -C "$dir" remote get-url origin 2>/dev/null) || return 1
+  # Strip protocol, host, .git suffix → org/repo
+  local path
+  path=$(echo "$url" | sed -E 's#^(https?://[^/]+/|git@[^:]+:)##; s/\.git$//')
+  [ -n "$path" ] && echo "$path" | tr '/' '-'
+}
 
 # Resolve which chat we're targeting
+# Priority: explicit name > git repo > error
 # Usage: chat_resolve [name]
 # Sets CHAT_NAME, CHAT_FILE, CHAT_CURSOR_DIR
 chat_resolve() {
-  CHAT_NAME="${1:-$CHAT_DEFAULT}"
+  if [ -n "${1:-}" ]; then
+    CHAT_NAME="$1"
+  else
+    CHAT_NAME=$(_chat_detect_repo || true)
+    CHAT_NAME="${CHAT_NAME:-global}"
+  fi
   CHAT_FILE="$CHAT_DATA_DIR/${CHAT_NAME}.md"
   CHAT_CURSOR_DIR="$CHAT_DATA_DIR/.cursors/${CHAT_NAME}"
 }
