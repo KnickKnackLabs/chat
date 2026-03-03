@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Send a message to a chat"
 #USAGE flag "--from <from>" help="Your agent name" required=#true
-#USAGE flag "--chat <chat>" help="Chat name (default: den)"
+#USAGE flag "--chat <chat>" help="Chat name (default: auto-detect from git remote)"
 #USAGE arg "<message>" help="The message to send (or - for stdin)"
 set -eo pipefail
 

@@ -5,35 +5,43 @@ set -eo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$REPO_DIR/lib/chat.sh"
 
+# Safe grep -c
+count_matches() {
+  grep -c "$@" || true
+}
+
 if ! compgen -G "$CHAT_DATA_DIR/*.md" >/dev/null 2>&1; then
   echo "No chats yet. Create one with: chat send --chat <name> --from <you> \"hello\""
   exit 0
 fi
 
+# Detect current chat for marker
+current=$(_chat_detect_repo || true)
+current="${current:-global}"
+
 if command -v gum &>/dev/null; then
-  # Pretty output with gum
+  rows=""
   for f in "$CHAT_DATA_DIR"/*.md; do
     [ -f "$f" ] || continue
     name=$(basename "$f" .md)
     lines=$(wc -l < "$f" | tr -d ' ')
-    msgs=$(grep -c '^### ' "$f" 2>/dev/null || echo "0")
-    last=$(grep '^### ' "$f" | tail -1 | sed 's/^### //' 2>/dev/null || echo "—")
-    default_marker=""
-    [ "$name" = "$CHAT_DEFAULT" ] && default_marker=" (default)"
-
-    gum style --foreground 39 --bold "${name}${default_marker}"
-    echo "  ${msgs} messages, ${lines} lines"
-    [ -n "$last" ] && echo "  last: ${last}"
-    echo ""
+    msgs=$(count_matches '^### ' "$f" 2>/dev/null)
+    last=$(grep '^### ' "$f" 2>/dev/null | tail -1 | sed 's/^### //' || true)
+    last="${last:-—}"
+    marker=""
+    [ "$name" = "$current" ] && marker=" ←"
+    rows="${rows}${name}${marker}|${msgs}|${lines}|${last}\n"
   done
+
+  printf '%b' "Chat|Msgs|Lines|Last Activity\n${rows}" | \
+    gum table -s '|' -p --border.foreground 39
 else
-  # Plain output
   for f in "$CHAT_DATA_DIR"/*.md; do
     [ -f "$f" ] || continue
     name=$(basename "$f" .md)
-    msgs=$(grep -c '^### ' "$f" 2>/dev/null || echo "0")
-    default_marker=""
-    [ "$name" = "$CHAT_DEFAULT" ] && default_marker=" (default)"
-    echo "${name}${default_marker} — ${msgs} message(s)"
+    msgs=$(count_matches '^### ' "$f" 2>/dev/null)
+    marker=""
+    [ "$name" = "$current" ] && marker=" (current)"
+    echo "${name}${marker} — ${msgs} message(s)"
   done
 fi

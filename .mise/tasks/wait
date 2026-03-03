@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Wait for a new message addressed to you"
 #USAGE flag "--for <for>" help="Your agent name" required=#true
-#USAGE flag "--chat <chat>" help="Chat name (default: den)"
+#USAGE flag "--chat <chat>" help="Chat name (default: auto-detect from git remote)"
 #USAGE flag "--timeout <seconds>" help="Max seconds to wait (0 = forever)" default="120"
 set -eo pipefail
 

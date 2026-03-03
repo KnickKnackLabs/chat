@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #MISE description="Show recent chat history"
-#USAGE flag "--chat <chat>" help="Chat name (default: den)"
+#USAGE flag "--chat <chat>" help="Chat name (default: auto-detect from git remote)"
 #USAGE flag "--limit <lines>" help="Number of lines to show" default="50"
 set -eo pipefail
 

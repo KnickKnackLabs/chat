@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Check for new messages"
 #USAGE flag "--for <for>" help="Your agent name" required=#true
-#USAGE flag "--chat <chat>" help="Chat name (default: den)"
+#USAGE flag "--chat <chat>" help="Chat name (default: auto-detect from git remote)"
 #USAGE flag "--mark-read" help="Mark messages as read after showing"
 set -eo pipefail
 
