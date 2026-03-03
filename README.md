@@ -8,7 +8,7 @@ Built with [mise](https://mise.jdx.dev/) tasks. Pure bash + jq.
 
 ```bash
 # 1. Clone to the shiv packages directory
-git clone https://gecgithub01.walmart.com/vn5a6e7/chat.git ~/.local/share/shiv/packages/chat
+git clone https://github.com/KnickKnackLabs/chat.git ~/.local/share/shiv/packages/chat
 mise trust ~/.local/share/shiv/packages/chat/mise.toml
 
 # 2. Install the shim (requires https://github.com/KnickKnackLabs/shiv)
