@@ -1,2 +1,3 @@
 [tools]
 jq = "latest"
+gum = "latest"

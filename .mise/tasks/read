@@ -1,26 +1,68 @@
 #!/usr/bin/env bash
 #MISE description="Show new messages and mark as read"
-#USAGE flag "--for <for>" help="Your agent name" required=#true
+#USAGE flag "--for <for>" help="Your agent name (omit to just spectate)"
+#USAGE flag "--chat <chat>" help="Chat name (default: den)"
+#USAGE flag "--from <from>" help="Filter messages by sender"
 #USAGE flag "--all" help="Show all messages, not just unread"
 set -eo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$REPO_DIR/lib/chat.sh"
+chat_resolve "${usage_chat:-}"
 chat_init
 
-agent="$usage_for"
+agent="${usage_for:-}"
+sender="${usage_from:-}"
+show_all="${usage_all:-}"
 
-if [ "${usage_all:-}" = "true" ]; then
-  # Show full log (skip the header/separator)
-  tail -n +7 "$CHAT_FILE"
-else
-  count=$(chat_count_new "$agent")
-  if [ "$count" = "0" ]; then
-    echo "No new messages."
-  else
-    chat_new_messages "$agent"
-  fi
+# If no --for, treat as --all (spectator mode)
+if [ -z "$agent" ]; then
+  show_all="true"
 fi
 
-echo ""
-chat_set_cursor "$agent"
+get_content() {
+  if [ "$show_all" = "true" ]; then
+    tail -n +7 "$CHAT_FILE"
+  else
+    local count
+    count=$(chat_count_new "$agent")
+    if [ "$count" = "0" ]; then
+      echo ""
+      return 1
+    fi
+    chat_new_messages "$agent"
+  fi
+}
+
+filter_by_sender() {
+  if [ -z "$sender" ]; then
+    cat
+    return
+  fi
+
+  # Filter message blocks by sender name (case-insensitive)
+  local in_match=false
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^###\  ]]; then
+      if echo "$line" | grep -qi "^### ${sender} "; then
+        in_match=true
+      else
+        in_match=false
+      fi
+    fi
+    if [ "$in_match" = true ]; then echo "$line"; fi
+  done
+}
+
+content=$(get_content)
+if [ $? -ne 0 ] && [ -z "$content" ]; then
+  echo "No new messages in ${CHAT_NAME}."
+else
+  echo "$content" | filter_by_sender | chat_format_messages
+fi
+
+# Advance cursor only if we have an agent identity
+if [ -n "$agent" ]; then
+  echo ""
+  chat_set_cursor "$agent"
+fi

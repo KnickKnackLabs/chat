@@ -1,23 +1,25 @@
 #!/usr/bin/env bash
-#MISE description="Archive old messages and reset the chat"
+#MISE description="Archive old messages and reset a chat"
+#USAGE flag "--chat <chat>" help="Chat name (default: den)"
 #USAGE flag "--yes" help="Skip confirmation"
 set -eo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$REPO_DIR/lib/chat.sh"
+chat_resolve "${usage_chat:-}"
 chat_init
 
-ARCHIVE_DIR="$CHAT_DIR/archive"
+ARCHIVE_DIR="$CHAT_DATA_DIR/archive"
 mkdir -p "$ARCHIVE_DIR"
 
 line_count=$(chat_line_count)
 if [ "$line_count" -le 6 ]; then
-  echo "Chat is already clean (only header). Nothing to archive."
+  echo "Chat ${CHAT_NAME} is already clean (only header). Nothing to archive."
   exit 0
 fi
 
 if [ "${usage_yes:-}" != "true" ]; then
-  echo "This will archive the current chat ($line_count lines) and reset it."
+  echo "This will archive ${CHAT_NAME} ($line_count lines) and reset it."
   echo -n "Continue? [y/N] "
   read -r confirm
   if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
@@ -27,20 +29,20 @@ if [ "${usage_yes:-}" != "true" ]; then
 fi
 
 # Archive with timestamp
-archive_file="$ARCHIVE_DIR/chat-$(date +%Y-%m-%d-%H%M).md"
+archive_file="$ARCHIVE_DIR/${CHAT_NAME}-$(date +%Y-%m-%d-%H%M).md"
 cp "$CHAT_FILE" "$archive_file"
 echo "Archived to: $archive_file"
 
 # Reset chat
-cat > "$CHAT_FILE" <<'EOF'
-# Agent Chat
+cat > "$CHAT_FILE" <<EOF
+# ${CHAT_NAME}
 
-Shared communication channel between agents. Keep messages short (<10 lines). For longer content, write to `/tmp/chat-attachment-<timestamp>.md` and reference it here.
+Shared communication channel. Keep messages short (<10 lines). For longer content, write to \`/tmp/chat-attachment-<timestamp>.md\` and reference it here.
 
 ---
 EOF
 
-# Reset all cursors
+# Reset cursors for this chat
 rm -f "$CHAT_CURSOR_DIR"/*
 
-echo "Chat reset. All cursors cleared."
+echo "Chat ${CHAT_NAME} reset. Cursors cleared."

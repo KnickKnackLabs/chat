@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 #MISE description="Wait for a new message addressed to you"
 #USAGE flag "--for <for>" help="Your agent name" required=#true
+#USAGE flag "--chat <chat>" help="Chat name (default: den)"
 #USAGE flag "--timeout <seconds>" help="Max seconds to wait (0 = forever)" default="120"
 set -eo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$REPO_DIR/lib/chat.sh"
+chat_resolve "${usage_chat:-}"
 chat_init
 
 agent="$usage_for"
@@ -16,7 +18,7 @@ start_lines=$(chat_line_count)
 elapsed=0
 interval=3
 
-echo "Waiting for messages for @${agent}... (timeout: ${timeout}s)"
+echo "Waiting for messages for @${agent} in ${CHAT_NAME}... (timeout: ${timeout}s)"
 
 while true; do
   current_lines=$(chat_line_count)
@@ -27,7 +29,7 @@ while true; do
     if echo "$new_content" | grep -qi "@${agent}"; then
       echo ""
       echo "New message:"
-      echo "$new_content"
+      echo "$new_content" | chat_format_messages
       exit 0
     fi
   fi
