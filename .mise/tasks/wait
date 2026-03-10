@@ -33,10 +33,31 @@ fi
 
 # Check if there are already unread messages before we start polling
 if [ "$cursor" -lt "$total" ]; then
-  echo "New messages:"
-  tail -n +"$((cursor + 1))" "$CHAT_FILE" | chat_format_messages
+  new_content=$(tail -n +"$((cursor + 1))" "$CHAT_FILE")
+
+  # Apply sender filtering: skip if all new messages are from ourselves
+  should_wake=true
+  if [ -n "$agent" ]; then
+    should_wake=false
+    while IFS= read -r header; do
+      sender=$(echo "$header" | sed -E 's/^### (.+) — .+$/\1/')
+      if [ "$sender" != "$agent" ]; then
+        should_wake=true
+        break
+      fi
+    done <<< "$(echo "$new_content" | grep '^### ')"
+  fi
+
+  if [ "$should_wake" = true ]; then
+    echo "New messages:"
+    echo "$new_content" | chat_format_messages
+    chat_set_cursor "$agent"
+    exit 0
+  fi
+
+  # Only own messages — advance cursor past them and continue to poll
   chat_set_cursor "$agent"
-  exit 0
+  cursor="$total"
 fi
 
 elapsed=0
