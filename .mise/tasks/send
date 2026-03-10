@@ -2,6 +2,7 @@
 #MISE description="Send a message to a chat"
 #USAGE flag "--from <from>" help="Your agent name" required=#true
 #USAGE flag "--chat <chat>" help="Chat name (default: auto-detect from git remote)"
+#USAGE flag "-f --force" help="Send even if there are unread messages"
 #USAGE arg "<message>" help="The message to send (or - for stdin)"
 set -eo pipefail
 
@@ -30,6 +31,19 @@ if [ "$line_count" -gt "$MAX_LINES" ]; then
   echo "Error: message too long (${line_count} lines, max ${MAX_LINES})" >&2
   echo "Tip: write to /tmp/chat-attachment-\$(date +%Y%m%d-%H%M)-<topic>.md and reference it" >&2
   exit 1
+fi
+
+# Guard: warn if sender has unread messages (skip for first-time senders)
+if [ "${usage_force:-false}" != "true" ]; then
+  cursor=$(chat_get_cursor "$from")
+  if [ "$cursor" -gt 0 ]; then
+    unread=$(chat_count_new "$from")
+    if [ "$unread" -gt 0 ]; then
+      echo "Error: you have ${unread} unread message(s) in ${CHAT_NAME}." >&2
+      echo "Run 'chat read' first, or use --force to send anyway." >&2
+      exit 1
+    fi
+  fi
 fi
 
 chat_append "$from" "$message"
