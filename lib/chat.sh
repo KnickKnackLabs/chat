@@ -150,12 +150,17 @@ chat_format_messages() {
 
   while IFS= read -r line || [ -n "$line" ]; do
     if [[ "$line" =~ ^###\ (.+)\ —\ (.+)$ ]]; then
+      # Save matches before any regex that could clobber BASH_REMATCH
+      local match_name="${BASH_REMATCH[1]}"
+      local match_time="${BASH_REMATCH[2]}"
       # Print previous message if any
       if [ -n "$header" ]; then
+        # Trim trailing blank lines from body
+        while [[ "$body" =~ $'\n'$ ]]; do body="${body%$'\n'}"; done
         _chat_render_block "$header" "$body" "$first"
         first=false
       fi
-      header="${BASH_REMATCH[1]}  ${BASH_REMATCH[2]}"
+      header="${match_name}  ${match_time}"
       body=""
       in_header=true
     elif [ "$in_header" = true ]; then
@@ -168,6 +173,7 @@ chat_format_messages() {
 
   # Render last message
   if [ -n "$header" ]; then
+    while [[ "$body" =~ $'\n'$ ]]; do body="${body%$'\n'}"; done
     _chat_render_block "$header" "$body" "$first"
   fi
 }
