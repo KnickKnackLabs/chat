@@ -13,8 +13,32 @@ chat_init
 agent="${usage_for:-}"
 timeout="${usage_timeout:-120}"
 
-# Record where we are now
-start_lines=$(chat_line_count)
+# Use cursor (last-read position) instead of current line count.
+# This way we catch messages sent BEFORE wait started but AFTER
+# the agent's last `read`.
+cursor=$(chat_get_cursor "$agent")
+total=$(chat_line_count)
+
+# Edge case: cursor beyond file length (e.g., chat was truncated/cleared)
+if [ "$cursor" -gt "$total" ]; then
+  cursor="$total"
+fi
+
+# Edge case: cursor=0 means agent has never read this chat.
+# Don't dump the entire history — start from current position.
+if [ "$cursor" -eq 0 ]; then
+  cursor="$total"
+  chat_set_cursor "$agent"
+fi
+
+# Check if there are already unread messages before we start polling
+if [ "$cursor" -lt "$total" ]; then
+  echo "New messages:"
+  tail -n +"$((cursor + 1))" "$CHAT_FILE" | chat_format_messages
+  chat_set_cursor "$agent"
+  exit 0
+fi
+
 elapsed=0
 interval=3
 
@@ -27,15 +51,16 @@ fi
 while true; do
   current_lines=$(chat_line_count)
 
-  if [ "$current_lines" -gt "$start_lines" ]; then
-    # New content arrived
-    new_content=$(tail -n +"$((start_lines + 1))" "$CHAT_FILE")
+  if [ "$current_lines" -gt "$cursor" ]; then
+    # New content since our cursor position
+    new_content=$(tail -n +"$((cursor + 1))" "$CHAT_FILE")
 
     if [ -z "$agent" ]; then
       # No --for: wake on any new message
       echo ""
-      echo "New message:"
+      echo "New messages:"
       echo "$new_content" | chat_format_messages
+      chat_set_cursor "$agent"
       exit 0
     else
       # --for set: wake on any message NOT from this agent
@@ -51,8 +76,9 @@ while true; do
 
       if [ "$has_other_sender" = true ]; then
         echo ""
-        echo "New message:"
+        echo "New messages:"
         echo "$new_content" | chat_format_messages
+        chat_set_cursor "$agent"
         exit 0
       fi
     fi
