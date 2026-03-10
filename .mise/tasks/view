@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+#MISE description="Watch a chat in real-time"
+#USAGE flag "--chat <chat>" help="Chat name (default: auto-detect from git remote)"
+#USAGE flag "--tail <lines>" help="Number of recent lines to show on start" default="50"
+set -eo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_DIR/lib/chat.sh"
+chat_resolve "${usage_chat:-}"
+chat_init
+
+tail_lines="${usage_tail:-50}"
+
+if [ ! -f "$CHAT_FILE" ]; then
+  echo "No chat history for ${CHAT_NAME}."
+  exit 0
+fi
+
+# Header
+if command -v gum &>/dev/null; then
+  gum style --foreground 39 --bold "📡 Watching ${CHAT_NAME} (Ctrl+C to exit)"
+else
+  echo "📡 Watching ${CHAT_NAME} (Ctrl+C to exit)"
+fi
+echo ""
+
+# Show recent history — seek backward to nearest message header so we
+# don't render a partial message block missing its ### header line
+recent=$(tail -n "$tail_lines" "$CHAT_FILE")
+if [ -n "$recent" ]; then
+  # Find first ### header in the tail output; drop lines before it
+  first_header=$(echo "$recent" | grep -n '^### ' | head -1 | cut -d: -f1)
+  if [ -n "$first_header" ]; then
+    echo "$recent" | tail -n +"$first_header" | chat_format_messages
+  else
+    # No headers in window — show raw (probably just the file preamble)
+    echo "$recent"
+  fi
+fi
+
+echo ""
+if command -v gum &>/dev/null; then
+  echo "--- live tail ---" | gum style --foreground 240
+else
+  echo "--- live tail ---"
+fi
+
+# Track where we are so we only format new complete messages
+last_line=$(wc -l < "$CHAT_FILE" | tr -d ' ')
+
+# Tail for new content, processing complete message blocks
+while true; do
+  current_line=$(wc -l < "$CHAT_FILE" | tr -d ' ')
+
+  if [ "$current_line" -gt "$last_line" ]; then
+    # New content — extract and format it
+    tail -n +"$((last_line + 1))" "$CHAT_FILE" | chat_format_messages
+    last_line="$current_line"
+  fi
+
+  sleep 1
+done

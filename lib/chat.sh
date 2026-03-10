@@ -134,6 +134,14 @@ chat_list() {
   printf '%s\n' "${chats[@]}"
 }
 
+# Trim trailing blank lines from a string
+# Usage: result=$(_chat_trim_trailing_newlines "$text")
+_chat_trim_trailing_newlines() {
+  local text="$1"
+  while [[ "$text" =~ $'\n'$ ]]; do text="${text%$'\n'}"; done
+  printf '%s' "$text"
+}
+
 # Format a message block for display using gum
 # Usage: chat_format_message "header_line" "body_text"
 chat_format_messages() {
@@ -150,12 +158,16 @@ chat_format_messages() {
 
   while IFS= read -r line || [ -n "$line" ]; do
     if [[ "$line" =~ ^###\ (.+)\ —\ (.+)$ ]]; then
+      # Save matches before any regex that could clobber BASH_REMATCH
+      local match_name="${BASH_REMATCH[1]}"
+      local match_time="${BASH_REMATCH[2]}"
       # Print previous message if any
       if [ -n "$header" ]; then
+        body=$(_chat_trim_trailing_newlines "$body")
         _chat_render_block "$header" "$body" "$first"
         first=false
       fi
-      header="${BASH_REMATCH[1]}  ${BASH_REMATCH[2]}"
+      header="${match_name}  ${match_time}"
       body=""
       in_header=true
     elif [ "$in_header" = true ]; then
@@ -168,6 +180,7 @@ chat_format_messages() {
 
   # Render last message
   if [ -n "$header" ]; then
+    body=$(_chat_trim_trailing_newlines "$body")
     _chat_render_block "$header" "$body" "$first"
   fi
 }
