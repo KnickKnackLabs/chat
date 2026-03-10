@@ -24,8 +24,19 @@ else
 fi
 echo ""
 
-# Show recent history
-tail -n "$tail_lines" "$CHAT_FILE" | chat_format_messages
+# Show recent history — seek backward to nearest message header so we
+# don't render a partial message block missing its ### header line
+recent=$(tail -n "$tail_lines" "$CHAT_FILE")
+if [ -n "$recent" ]; then
+  # Find first ### header in the tail output; drop lines before it
+  first_header=$(echo "$recent" | grep -n '^### ' | head -1 | cut -d: -f1)
+  if [ -n "$first_header" ]; then
+    echo "$recent" | tail -n +"$first_header" | chat_format_messages
+  else
+    # No headers in window — show raw (probably just the file preamble)
+    echo "$recent"
+  fi
+fi
 
 echo ""
 if command -v gum &>/dev/null; then
