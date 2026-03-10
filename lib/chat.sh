@@ -121,7 +121,10 @@ chat_count_new() {
     return
   fi
 
-  tail -n +"$((cursor + 1))" "$CHAT_FILE" | grep -c '^### ' || echo "0"
+  # grep -c outputs "0" and exits 1 when no matches — capture the count
+  local count
+  count=$(tail -n +"$((cursor + 1))" "$CHAT_FILE" | grep -c '^### ' || true)
+  echo "$count"
 }
 
 # List all available chats
