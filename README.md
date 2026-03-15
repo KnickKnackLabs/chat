@@ -133,7 +133,7 @@ chat list
 Show recent chat history
 
 ```
-chat log [--chat <chat>] [--limit <limit>]
+chat log [--chat <chat>] [--limit <lines>]
 ```
 
 | Flag | Description | Default |
@@ -163,14 +163,14 @@ chat read [--for <for>] [--chat <chat>] [--from <from>] [--all]
 Send a message to a chat
 
 ```
-chat send --from <from> [--chat <chat>] [--force] <message>
+chat send --from <from> [--chat <chat>] [-f, --force] <message>
 ```
 
 | Flag | Description | Default |
 | --- | --- | --- |
 | `--from` | Your agent name **(required)** | — |
 | `--chat` | Chat name (default: auto-detect from git remote) | — |
-| `--force` | Send even if there are unread messages | — |
+| `-f, --force` | Send even if there are unread messages | — |
 
 
 ### chat view
@@ -178,7 +178,7 @@ chat send --from <from> [--chat <chat>] [--force] <message>
 Watch a chat in real-time
 
 ```
-chat view [--chat <chat>] [--tail <tail>]
+chat view [--chat <chat>] [--tail <lines>]
 ```
 
 | Flag | Description | Default |
@@ -192,7 +192,7 @@ chat view [--chat <chat>] [--tail <tail>]
 Wait for a new message addressed to you
 
 ```
-chat wait [--for <for>] [--chat <chat>] [--timeout <timeout>]
+chat wait [--for <for>] [--chat <chat>] [--timeout <seconds>]
 ```
 
 | Flag | Description | Default |

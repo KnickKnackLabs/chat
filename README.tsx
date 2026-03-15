@@ -4,9 +4,9 @@ import { readFileSync, readdirSync } from "fs";
 import { join, resolve } from "path";
 
 import {
-  Heading, Paragraph, CodeBlock, Blockquote, LineBreak, HR,
-  Bold, Code, Link, Italic,
-  Badge, Badges, Center, Details, Section,
+  Heading, Paragraph, CodeBlock, LineBreak, HR,
+  Bold, Code, Link,
+  Badge, Badges, Center, Section,
   Table, TableHead, TableRow, Cell,
   List, Item,
   Raw, HtmlLink, Sub, HtmlTable, HtmlTr, HtmlTd,
@@ -22,7 +22,7 @@ const LIB_FILE = join(REPO_DIR, "lib/chat.sh");
 interface Command {
   name: string;
   description: string;
-  flags: { name: string; help: string; required?: boolean; default?: string; isBoolean: boolean }[];
+  flags: { name: string; shortFlag?: string; valueName?: string; help: string; required?: boolean; default?: string; isBoolean: boolean }[];
   args: { name: string; help: string }[];
   hidden: boolean;
 }
@@ -42,13 +42,14 @@ function parseTask(filename: string): Command {
   for (const line of lines) {
     const flagMatch = line.match(/#USAGE flag "(-[\w-]+ )?--(\w[\w-]*)(?:\s+<(\w+)>)?" help="([^"]+)"(.*)/);
     if (flagMatch) {
+      const shortFlag = flagMatch[1]?.trim(); // e.g. "-f"
       const name = flagMatch[2].replace(/_/g, "-");
-      const valueName = flagMatch[3]; // undefined for boolean flags
+      const valueName = flagMatch[3]; // e.g. "seconds" — undefined for boolean flags
       const help = flagMatch[4];
       const rest = flagMatch[5] || "";
       const required = rest.includes("required=#true");
       const defMatch = rest.match(/default="([^"]+)"/);
-      flags.push({ name: `--${name}`, help, required: required || undefined, default: defMatch?.[1], isBoolean: !valueName });
+      flags.push({ name: `--${name}`, shortFlag, valueName, help, required: required || undefined, default: defMatch?.[1], isBoolean: !valueName });
     }
 
     const argMatch = line.match(/#USAGE arg "<(\w+)>" help="([^"]+)"/);
@@ -89,43 +90,38 @@ function box(lines: string[], { padding = 1 }: { padding?: number } = {}): strin
   return [top, ...lines.map(l => "|" + pad(l) + "|"), bot].join("\n");
 }
 
-// Build a conversation snippet that looks like actual chat output
-function chatSnippet(): string {
-  const msgs = [
-    { from: "zeke", time: "10:32", body: "Hey @brownie, the CI is green on shimmer#650. Ready for review." },
-    { from: "brownie", time: "10:33", body: "@zeke Nice! I'll take a look after I finish this README." },
-    { from: "junior", time: "10:35", body: "FYI — I just pushed a fix for the cursor edge case on `clear`." },
-  ];
-  return msgs.map(m => `### ${m.from} — 2026-03-15 ${m.time}\n\n${m.body}`).join("\n\n");
-}
+// Conversation snippet — static example of chat output
+const chatSnippet = [
+  { from: "zeke", time: "10:32", body: "Hey @brownie, the CI is green on shimmer#650. Ready for review." },
+  { from: "brownie", time: "10:33", body: "@zeke Nice! I'll take a look after I finish this README." },
+  { from: "junior", time: "10:35", body: "FYI — I just pushed a fix for the cursor edge case on `clear`." },
+].map(m => `### ${m.from} — 2026-03-15 ${m.time}\n\n${m.body}`).join("\n\n");
 
-// Build the cursor tracking diagram — ASCII only for reliable alignment
-function cursorDiagram(): string {
-  const lines = [
-    "chat.md                    .cursors/",
-    "+-------------------+      +--------------+",
-    "| # ricon-family    |      | zeke    : 42 |",
-    "| ---               |      | brownie : 38 |",
-    "| ### zeke -- 10:32 |      | junior  : 42 |",
-    "|   @brownie ...    |      +--------------+",
-    "| ### brownie 10:33 |",
-    "|   @zeke ...       | <--- line 42",
-    "| ### junior 10:35  |",
-    "|   FYI ...         | <--- line 46",
-    "+-------------------+",
-    "",
-    "brownie's cursor is at 38  ->  2 unread",
-    "zeke and junior at 42      ->  1 unread",
-  ];
-  return lines.join("\n");
-}
+// Cursor tracking diagram — ASCII only for reliable alignment on GitHub
+const cursorDiagram = [
+  "chat.md                    .cursors/",
+  "+-------------------+      +--------------+",
+  "| # ricon-family    |      | zeke    : 42 |",
+  "| ---               |      | brownie : 38 |",
+  "| ### zeke -- 10:32 |      | junior  : 42 |",
+  "|   @brownie ...    |      +--------------+",
+  "| ### brownie 10:33 |",
+  "|   @zeke ...       | <--- line 42",
+  "| ### junior 10:35  |",
+  "|   FYI ...         | <--- line 46",
+  "+-------------------+",
+  "",
+  "brownie's cursor is at 38  ->  2 unread",
+  "zeke and junior at 42      ->  1 unread",
+].join("\n");
 
 // Build command usage string
 function cmdUsage(cmd: Command): string {
   const parts = [`chat ${cmd.name}`];
   for (const f of cmd.flags) {
-    const val = f.isBoolean ? "" : ` <${f.name.replace("--", "")}>`;
-    parts.push(f.required ? `${f.name}${val}` : `[${f.name}${val}]`);
+    const flagName = f.shortFlag ? `${f.shortFlag}, ${f.name}` : f.name;
+    const val = f.isBoolean ? "" : ` <${f.valueName ?? f.name.replace("--", "")}>`;
+    parts.push(f.required ? `${flagName}${val}` : `[${flagName}${val}]`);
   }
   for (const a of cmd.args) {
     parts.push(`<${a.name}>`);
@@ -187,7 +183,7 @@ chat view`}</CodeBlock>
         {"Every chat is a plain markdown file. Messages are appended as timestamped blocks. Each agent tracks their read position with a cursor file — a single number representing the last line they've seen."}
       </Paragraph>
 
-      <CodeBlock>{cursorDiagram()}</CodeBlock>
+      <CodeBlock>{cursorDiagram}</CodeBlock>
 
       <Paragraph>
         {"When you "}
@@ -205,7 +201,7 @@ chat view`}</CodeBlock>
         {"Here's what a conversation looks like in the channel file:"}
       </Paragraph>
 
-      <CodeBlock lang="markdown">{chatSnippet()}</CodeBlock>
+      <CodeBlock lang="markdown">{chatSnippet}</CodeBlock>
     </Section>
 
     <LineBreak />
@@ -233,7 +229,7 @@ chat view`}</CodeBlock>
               </TableHead>
               {cmd.flags.map(f => (
                 <TableRow>
-                  <Cell><Code>{f.name}</Code></Cell>
+                  <Cell><Code>{f.shortFlag ? `${f.shortFlag}, ${f.name}` : f.name}</Code></Cell>
                   <Cell>{f.help}{f.required ? " **(required)**" : ""}</Cell>
                   <Cell>{f.default ? <Code>{f.default}</Code> : "—"}</Cell>
                 </TableRow>
