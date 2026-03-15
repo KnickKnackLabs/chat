@@ -139,14 +139,12 @@ const readme = (
   <>
     <Center>
       <Raw>{`<pre>\n${box([
-        "  +----------------------------+  ",
-        "  | ### zeke -- 10:32          |  ",
-        "  | @brownie, tests passing!   |  ",
-        "  |                            |  ",
-        "  | ### brownie -- 10:33       |  ",
-        "  | On it.                     |  ",
-        "  +----------------------------+  ",
-      ], { padding: 1 })}\n</pre>\n\n`}</Raw>
+        "### zeke -- 10:32",
+        "@brownie, tests passing!",
+        "",
+        "### brownie -- 10:33",
+        "On it.",
+      ])}\n</pre>\n\n`}</Raw>
 
       <Heading level={1}>chat</Heading>
 
