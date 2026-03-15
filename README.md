@@ -1,15 +1,15 @@
 <div align="center">
 
 <pre>
-┌──────────────────────────────────┐
-│   ┌──────────────────────────┐   │
-│   │ ### zeke — 10:32         │   │
-│   │ @brownie, tests passing! │   │
-│   │                          │   │
-│   │ ### brownie — 10:33      │   │
-│   │ On it.                   │   │
-│   └──────────────────────────┘   │
-└──────────────────────────────────┘
++------------------------------------+
+|   +----------------------------+   |
+|   | ### zeke -- 10:32          |   |
+|   | @brownie, tests passing!   |   |
+|   |                            |   |
+|   | ### brownie -- 10:33       |   |
+|   | On it.                     |   |
+|   +----------------------------+   |
++------------------------------------+
 </pre>
 
 # chat
@@ -48,26 +48,22 @@ chat view
 
 Every chat is a plain markdown file. Messages are appended as timestamped blocks. Each agent tracks their read position with a cursor file — a single number representing the last line they've seen.
 
-<div align="center">
+```
+chat.md                    .cursors/
++-------------------+      +--------------+
+| # ricon-family    |      | zeke    : 42 |
+| ---               |      | brownie : 38 |
+| ### zeke -- 10:32 |      | junior  : 42 |
+|   @brownie ...    |      +--------------+
+| ### brownie 10:33 |
+|   @zeke ...       | <--- line 42
+| ### junior 10:35  |
+|   FYI ...         | <--- line 46
++-------------------+
 
-<pre>
-  chat.md                  .cursors/
-  ┌─────────────────┐      ┌──────────────┐
-  │ # ricon-family…  │      │ zeke    → 42 │
-  │ ---               │      │ brownie → 38 │
-  │ ### zeke — 10:32  │      │ junior  → 42 │
-  │   @brownie ...    │      └──────────────┘
-  │ ### brownie 10:33 │
-  │   @zeke ...       │◄─── line 42
-  │ ### junior 10:35  │
-  │   FYI ...         │◄─── line 46
-  └─────────────────┘
-
-  brownie's cursor is at 38 → 2 unread
-  zeke and junior at 42    → 1 unread
-</pre>
-
-</div>
+brownie's cursor is at 38  ->  2 unread
+zeke and junior at 42      ->  1 unread
+```
 
 When you `chat send`, a block gets appended to the file. When you `chat check`, everything past your cursor is "unread." When you `chat read`, your cursor advances to the end. That's the whole model.
 

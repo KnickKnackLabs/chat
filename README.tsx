@@ -84,9 +84,9 @@ function box(lines: string[], { padding = 1 }: { padding?: number } = {}): strin
   const maxLen = Math.max(...lines.map(l => l.length));
   const w = maxLen + padding * 2;
   const pad = (s: string) => " ".repeat(padding) + s + " ".repeat(w - s.length - padding);
-  const top = "┌" + "─".repeat(w) + "┐";
-  const bot = "└" + "─".repeat(w) + "┘";
-  return [top, ...lines.map(l => "│" + pad(l) + "│"), bot].join("\n");
+  const top = "+" + "-".repeat(w) + "+";
+  const bot = "+" + "-".repeat(w) + "+";
+  return [top, ...lines.map(l => "|" + pad(l) + "|"), bot].join("\n");
 }
 
 // Build a conversation snippet that looks like actual chat output
@@ -99,23 +99,23 @@ function chatSnippet(): string {
   return msgs.map(m => `### ${m.from} — 2026-03-15 ${m.time}\n\n${m.body}`).join("\n\n");
 }
 
-// Build the cursor tracking diagram
+// Build the cursor tracking diagram — ASCII only for reliable alignment
 function cursorDiagram(): string {
   const lines = [
-    "  chat.md                  .cursors/",
-    "  ┌─────────────────┐      ┌──────────────┐",
-    "  │ # ricon-family…  │      │ zeke    → 42 │",
-    "  │ ---               │      │ brownie → 38 │",
-    "  │ ### zeke — 10:32  │      │ junior  → 42 │",
-    "  │   @brownie ...    │      └──────────────┘",
-    "  │ ### brownie 10:33 │",
-    "  │   @zeke ...       │◄─── line 42",
-    "  │ ### junior 10:35  │",
-    "  │   FYI ...         │◄─── line 46",
-    "  └─────────────────┘",
+    "chat.md                    .cursors/",
+    "+-------------------+      +--------------+",
+    "| # ricon-family    |      | zeke    : 42 |",
+    "| ---               |      | brownie : 38 |",
+    "| ### zeke -- 10:32 |      | junior  : 42 |",
+    "|   @brownie ...    |      +--------------+",
+    "| ### brownie 10:33 |",
+    "|   @zeke ...       | <--- line 42",
+    "| ### junior 10:35  |",
+    "|   FYI ...         | <--- line 46",
+    "+-------------------+",
     "",
-    "  brownie's cursor is at 38 → 2 unread",
-    "  zeke and junior at 42    → 1 unread",
+    "brownie's cursor is at 38  ->  2 unread",
+    "zeke and junior at 42      ->  1 unread",
   ];
   return lines.join("\n");
 }
@@ -139,13 +139,13 @@ const readme = (
   <>
     <Center>
       <Raw>{`<pre>\n${box([
-        "  ┌──────────────────────────┐  ",
-        "  │ ### zeke — 10:32         │  ",
-        "  │ @brownie, tests passing! │  ",
-        "  │                          │  ",
-        "  │ ### brownie — 10:33      │  ",
-        "  │ On it.                   │  ",
-        "  └──────────────────────────┘  ",
+        "  +----------------------------+  ",
+        "  | ### zeke -- 10:32          |  ",
+        "  | @brownie, tests passing!   |  ",
+        "  |                            |  ",
+        "  | ### brownie -- 10:33       |  ",
+        "  | On it.                     |  ",
+        "  +----------------------------+  ",
       ], { padding: 1 })}\n</pre>\n\n`}</Raw>
 
       <Heading level={1}>chat</Heading>
@@ -189,9 +189,7 @@ chat view`}</CodeBlock>
         {"Every chat is a plain markdown file. Messages are appended as timestamped blocks. Each agent tracks their read position with a cursor file — a single number representing the last line they've seen."}
       </Paragraph>
 
-      <Center>
-        <Raw>{`<pre>\n${cursorDiagram()}\n</pre>\n\n`}</Raw>
-      </Center>
+      <CodeBlock>{cursorDiagram()}</CodeBlock>
 
       <Paragraph>
         {"When you "}
