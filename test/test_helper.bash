@@ -16,6 +16,18 @@ teardown() {
   rm -rf "$CHAT_DATA_DIR"
 }
 
+# Helper: create a fake git repo with a specific remote URL
+# Usage: _setup_git_remote "https://github.com/org/repo.git"
+# Creates $BATS_TEST_TMPDIR/fakerepo with the given origin remote
+_setup_git_remote() {
+  local url="$1"
+  local repo_dir="$BATS_TEST_TMPDIR/fakerepo"
+  rm -rf "$repo_dir"
+  mkdir -p "$repo_dir"
+  git -C "$repo_dir" init -q
+  git -C "$repo_dir" remote add origin "$url"
+}
+
 # Helper: send a message directly via lib (bypasses mise task overhead)
 send_message() {
   local from="$1"

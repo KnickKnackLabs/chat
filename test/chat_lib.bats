@@ -29,6 +29,66 @@ load test_helper
 }
 
 # ============================================================================
+# _chat_detect_repo — git remote auto-detection
+# ============================================================================
+
+@test "detect_repo: extracts repo name from HTTPS remote" {
+  _setup_git_remote "https://github.com/ricon-family/den.git"
+  CALLER_PWD="$BATS_TEST_TMPDIR/fakerepo" chat_resolve ""
+  [ "$CHAT_NAME" = "den" ]
+}
+
+@test "detect_repo: extracts repo name from SSH remote" {
+  _setup_git_remote "git@github.com:KnickKnackLabs/chat.git"
+  CALLER_PWD="$BATS_TEST_TMPDIR/fakerepo" chat_resolve ""
+  [ "$CHAT_NAME" = "chat" ]
+}
+
+@test "detect_repo: extracts repo name from GHE HTTPS remote" {
+  _setup_git_remote "https://gecgithub01.walmart.com/Torbit/okwai.git"
+  CALLER_PWD="$BATS_TEST_TMPDIR/fakerepo" chat_resolve ""
+  [ "$CHAT_NAME" = "okwai" ]
+}
+
+@test "detect_repo: strips .git suffix" {
+  _setup_git_remote "https://github.com/org/myrepo.git"
+  CALLER_PWD="$BATS_TEST_TMPDIR/fakerepo" chat_resolve ""
+  [ "$CHAT_NAME" = "myrepo" ]
+}
+
+@test "detect_repo: works without .git suffix" {
+  _setup_git_remote "https://github.com/org/myrepo"
+  CALLER_PWD="$BATS_TEST_TMPDIR/fakerepo" chat_resolve ""
+  [ "$CHAT_NAME" = "myrepo" ]
+}
+
+@test "detect_repo: no-org remote still works" {
+  _setup_git_remote "https://github.com/solo-repo.git"
+  CALLER_PWD="$BATS_TEST_TMPDIR/fakerepo" chat_resolve ""
+  [ "$CHAT_NAME" = "solo-repo" ]
+}
+
+@test "detect_repo: falls back to global when no git repo" {
+  CALLER_PWD="$BATS_TEST_TMPDIR" chat_resolve ""
+  [ "$CHAT_NAME" = "global" ]
+}
+
+@test "detect_repo: different orgs same repo name resolve to same channel" {
+  # This is intentional — shared name = shared channel
+  _setup_git_remote "https://github.com/org-a/shared.git"
+  CALLER_PWD="$BATS_TEST_TMPDIR/fakerepo" chat_resolve ""
+  local name_a="$CHAT_NAME"
+
+  # Reset and set up a different org
+  _setup_git_remote "https://github.com/org-b/shared.git"
+  CALLER_PWD="$BATS_TEST_TMPDIR/fakerepo" chat_resolve ""
+  local name_b="$CHAT_NAME"
+
+  [ "$name_a" = "$name_b" ]
+  [ "$name_a" = "shared" ]
+}
+
+# ============================================================================
 # chat_init
 # ============================================================================
 
