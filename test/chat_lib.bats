@@ -134,6 +134,19 @@ load test_helper
   [ "$count" -eq 3 ]
 }
 
+@test "append: multiline message preserved" {
+  local msg=$'line one\nline two\nline three'
+  send_message "alice" "$msg"
+  grep -q "line one" "$CHAT_FILE"
+  grep -q "line two" "$CHAT_FILE"
+  grep -q "line three" "$CHAT_FILE"
+}
+
+@test "append: empty body still creates header" {
+  send_message "alice" ""
+  grep -q "^### alice — " "$CHAT_FILE"
+}
+
 # ============================================================================
 # chat_new_messages
 # ============================================================================
@@ -157,6 +170,37 @@ load test_helper
   send_message "bob" "hello"
   run chat_new_messages "alice"
   [[ "$output" == *"### bob"* ]]
+}
+
+@test "new_messages: excludes already-read content" {
+  send_message "bob" "old message"
+  mark_read "alice"
+  send_message "carol" "new message"
+  run chat_new_messages "alice"
+  [[ "$output" == *"new message"* ]]
+  [[ "$output" != *"old message"* ]]
+}
+
+@test "new_messages: independent readers see different content" {
+  send_message "carol" "msg for everyone"
+  mark_read "alice"
+  send_message "carol" "msg2"
+
+  # alice only sees msg2
+  run chat_new_messages "alice"
+  [[ "$output" == *"msg2"* ]]
+  [[ "$output" != *"msg for everyone"* ]]
+
+  # bob (cursor=0) sees everything from start
+  local bob_cursor
+  bob_cursor=$(chat_get_cursor "bob")
+  [ "$bob_cursor" = "0" ]
+}
+
+@test "new_messages: cursor beyond file length returns 1" {
+  printf '99999' > "$CHAT_CURSOR_DIR/alice"
+  run chat_new_messages "alice"
+  [ "$status" -eq 1 ]
 }
 
 # ============================================================================
@@ -187,6 +231,15 @@ load test_helper
   local count
   count=$(chat_count_new "newbie")
   [ "$count" = "0" ]
+}
+
+@test "count_new: repeated calls return same value (no side effects)" {
+  mark_read "alice"
+  send_message "bob" "persistent"
+  local count1 count2
+  count1=$(chat_count_new "alice")
+  count2=$(chat_count_new "alice")
+  [ "$count1" = "$count2" ]
 }
 
 # ============================================================================
