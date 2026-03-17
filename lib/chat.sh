@@ -4,15 +4,15 @@
 CHAT_DATA_DIR="${CHAT_DATA_DIR:-$HOME/.local/share/chat}"
 
 # Detect chat name from git remote origin of the caller's directory
-# Returns org-repo (slashes replaced with -) or empty string
+# Returns the repo name (last path component, no org prefix) or empty string
 _chat_detect_repo() {
   local dir="${CALLER_PWD:-$PWD}"
   local url
   url=$(git -C "$dir" remote get-url origin 2>/dev/null) || return 1
-  # Strip protocol, host, .git suffix → org/repo
+  # Strip protocol, host, .git suffix → org/repo, then take last component
   local path
   path=$(echo "$url" | sed -E 's#^(https?://[^/]+/|git@[^:]+:)##; s/\.git$//')
-  [ -n "$path" ] && echo "$path" | tr '/' '-'
+  [ -n "$path" ] && basename "$path"
 }
 
 # Resolve which chat we're targeting
