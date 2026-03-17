@@ -64,7 +64,7 @@ load test_helper
   [[ "$output" != *"from carol"* ]]
 }
 
-@test "task read: cursor advances even with no messages" {
+@test "task read: cursor advances after reading messages" {
   send_message "bob" "setup"
   mark_read "alice"
 

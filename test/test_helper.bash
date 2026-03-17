@@ -50,7 +50,7 @@ run_task() {
       --mark-read) env_vars+=("usage_mark_read=true"); shift ;;
       --force)  env_vars+=("usage_force=true"); shift ;;
       --message) env_vars+=("usage_message=$2"); shift 2 ;;
-      *)        shift ;;
+      *)        echo "run_task: unknown flag: $1" >&2; return 1 ;;
     esac
   done
 
