@@ -1,0 +1,117 @@
+#!/usr/bin/env -S uv run --script
+#MISE description="Merge two chat channels by interleaving messages by timestamp"
+#USAGE arg "<source>" help="Source channel to merge FROM (will be consumed)"
+#USAGE arg "<target>" help="Target channel to merge INTO"
+#USAGE flag "--dry-run" help="Show what would happen without writing"
+#USAGE flag "--no-tag" help="Don't annotate messages with source channel"
+# /// script
+# requires-python = ">=3.10"
+# ///
+
+import os
+import shutil
+import sys
+from pathlib import Path
+
+# Add lib/ to path for shared parser
+lib_dir = Path(os.environ.get("MISE_CONFIG_ROOT", Path(__file__).resolve().parent.parent.parent)) / "lib"
+sys.path.insert(0, str(lib_dir))
+
+from parse import parse_messages, parse_header, format_message, write_chat, merge_messages
+
+CHAT_DATA_DIR = Path(os.environ.get("CHAT_DATA_DIR", Path.home() / ".local/share/chat"))
+
+def main():
+    source_name = os.environ.get("usage_source", "")
+    target_name = os.environ.get("usage_target", "")
+    dry_run = os.environ.get("usage_dry_run", "") == "true"
+    no_tag = os.environ.get("usage_no_tag", "") == "true"
+
+    if not source_name or not target_name:
+        print("Error: both <source> and <target> channel names are required", file=sys.stderr)
+        sys.exit(1)
+
+    if source_name == target_name:
+        print(f"Error: source and target are the same channel: {source_name}", file=sys.stderr)
+        sys.exit(1)
+
+    source_file = CHAT_DATA_DIR / f"{source_name}.md"
+    target_file = CHAT_DATA_DIR / f"{target_name}.md"
+
+    if not source_file.exists():
+        print(f"Error: source channel not found: {source_file}", file=sys.stderr)
+        sys.exit(1)
+
+    if not target_file.exists():
+        print(f"Error: target channel not found: {target_file}", file=sys.stderr)
+        sys.exit(1)
+
+    # Parse both channels
+    source_msgs = parse_messages(source_file, source=source_name)
+    target_msgs = parse_messages(target_file, source=target_name)
+
+    print(f"Source: {source_name} ({len(source_msgs)} messages)")
+    print(f"Target: {target_name} ({len(target_msgs)} messages)")
+    print(f"Total:  {len(source_msgs) + len(target_msgs)} messages")
+    print()
+
+    # Merge by timestamp
+    channels = {source_name: source_file, target_name: target_file}
+    # Use target's header (it's the surviving channel)
+    header = parse_header(target_file)
+    all_msgs = sorted(source_msgs + target_msgs, key=lambda m: m.timestamp)
+
+    tag_sources = not no_tag
+
+    if dry_run:
+        print("--- DRY RUN (no files modified) ---")
+        print()
+        for msg in all_msgs:
+            tag = f" [{msg.source}]" if tag_sources and msg.source else ""
+            print(f"  {msg.timestamp_str}  {msg.sender}{tag}  {msg.preview[:60]}")
+        print()
+        print(f"Would write {len(all_msgs)} messages to {target_file}")
+        print(f"Would remove {source_file}")
+        print(f"Would migrate cursors from .cursors/{source_name}/ to .cursors/{target_name}/")
+        return
+
+    # Write merged file
+    write_chat(target_file, header, all_msgs, tag_sources=tag_sources)
+    print(f"Wrote {len(all_msgs)} messages to {target_file}")
+
+    # Migrate cursors: for each agent, take the max of both cursors
+    source_cursor_dir = CHAT_DATA_DIR / ".cursors" / source_name
+    target_cursor_dir = CHAT_DATA_DIR / ".cursors" / target_name
+    target_cursor_dir.mkdir(parents=True, exist_ok=True)
+
+    if source_cursor_dir.exists():
+        for cursor_file in source_cursor_dir.iterdir():
+            if not cursor_file.is_file():
+                continue
+            agent = cursor_file.name
+            source_cursor = int(cursor_file.read_text().strip() or "0")
+            target_cursor_file = target_cursor_dir / agent
+            target_cursor = 0
+            if target_cursor_file.exists():
+                target_cursor = int(target_cursor_file.read_text().strip() or "0")
+
+            # After merge, set cursor to end of file (agent should re-read)
+            # This is the safest option — avoids missing messages
+            # We reset to 0 so agents see the full merged history
+            # (they can --mark-read to skip if they want)
+            target_cursor_file.write_text("0")
+            print(f"  Cursor {agent}: reset to 0 (was {source_cursor} in {source_name}, {target_cursor} in {target_name})")
+
+        shutil.rmtree(source_cursor_dir)
+        print(f"Removed {source_cursor_dir}")
+
+    # Remove source file
+    source_file.unlink()
+    print(f"Removed {source_file}")
+
+    print()
+    print(f"Merge complete. {source_name} -> {target_name}")
+
+
+if __name__ == "__main__":
+    main()
