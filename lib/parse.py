@@ -66,7 +66,7 @@ def parse_messages(filepath: Path, source: Optional[str] = None) -> list[Message
     current_timestamp = None
     current_body_lines: list[str] = []
     current_line_number = 0
-    header_suffix = ""
+    current_source = source
 
     for i, line in enumerate(lines, start=1):
         match = MESSAGE_HEADER_RE.match(line)
@@ -79,12 +79,17 @@ def parse_messages(filepath: Path, source: Optional[str] = None) -> list[Message
                     timestamp=current_timestamp,
                     body=body,
                     line_number=current_line_number,
-                    source=source,
+                    source=current_source,
                 ))
             # Start new message
             current_sender = match.group(1)
             current_timestamp = datetime.strptime(match.group(2), TIMESTAMP_FMT)
-            header_suffix = match.group(3).strip()
+            # Preserve source tag from header suffix (e.g., "⟵ old-channel")
+            suffix = match.group(3).strip()
+            if suffix.startswith("\u27f5"):
+                current_source = suffix[1:].strip()
+            else:
+                current_source = source
             current_body_lines = []
             current_line_number = i
         elif current_sender is not None:
@@ -98,7 +103,7 @@ def parse_messages(filepath: Path, source: Optional[str] = None) -> list[Message
             timestamp=current_timestamp,
             body=body,
             line_number=current_line_number,
-            source=source,
+            source=current_source,
         ))
 
     return messages

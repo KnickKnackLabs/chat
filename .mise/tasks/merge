@@ -17,7 +17,7 @@ from pathlib import Path
 lib_dir = Path(os.environ.get("MISE_CONFIG_ROOT", Path(__file__).resolve().parent.parent.parent)) / "lib"
 sys.path.insert(0, str(lib_dir))
 
-from parse import parse_messages, parse_header, format_message, write_chat, merge_messages
+from parse import parse_messages, parse_header, write_chat
 
 CHAT_DATA_DIR = Path(os.environ.get("CHAT_DATA_DIR", Path.home() / ".local/share/chat"))
 
