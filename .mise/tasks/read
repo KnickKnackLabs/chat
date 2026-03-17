@@ -20,20 +20,6 @@ if [ -z "$agent" ]; then
   show_all="true"
 fi
 
-get_content() {
-  if [ "$show_all" = "true" ]; then
-    tail -n +7 "$CHAT_FILE"
-  else
-    local count
-    count=$(chat_count_new "$agent")
-    if [ "$count" = "0" ]; then
-      echo ""
-      return 1
-    fi
-    chat_new_messages "$agent"
-  fi
-}
-
 filter_by_sender() {
   if [ -z "$sender" ]; then
     cat
@@ -54,12 +40,23 @@ filter_by_sender() {
   done
 }
 
-content=$(get_content)
-if [ $? -ne 0 ] && [ -z "$content" ]; then
-  echo "No new messages in ${CHAT_NAME}."
+# Check for new messages using value (not exit code)
+if [ "$show_all" = "true" ]; then
+  content=$(tail -n +7 "$CHAT_FILE")
 else
-  echo "$content" | filter_by_sender | chat_format_messages
+  count=$(chat_count_new "$agent")
+  if [ "$count" = "0" ]; then
+    echo "No new messages in ${CHAT_NAME}."
+    # Still advance cursor so agent stays current
+    if [ -n "$agent" ]; then
+      chat_set_cursor "$agent"
+    fi
+    exit 0
+  fi
+  content=$(chat_new_messages "$agent")
 fi
+
+echo "$content" | filter_by_sender | chat_format_messages
 
 # Advance cursor only if we have an agent identity
 if [ -n "$agent" ]; then
