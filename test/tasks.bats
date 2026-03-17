@@ -119,25 +119,25 @@ load test_helper
 # ============================================================================
 
 @test "task send: appends message" {
-  run_task send --from alice --chat test-chat --message "hello world"
+  run_task send --from alice --chat test-chat "hello world"
   [ "$status" -eq 0 ]
   grep -q "hello world" "$CHAT_FILE"
 }
 
 @test "task send: message has sender header" {
-  run_task send --from alice --chat test-chat --message "test"
+  run_task send --from alice --chat test-chat "test"
   [ "$status" -eq 0 ]
   grep -q "^### alice" "$CHAT_FILE"
 }
 
 @test "task send: confirms with output" {
-  run_task send --from alice --chat test-chat --message "hi"
+  run_task send --from alice --chat test-chat "hi"
   [ "$status" -eq 0 ]
   [[ "$output" == *"Sent to test-chat"* ]]
 }
 
 @test "task send: rejects empty message" {
-  run_task send --from alice --chat test-chat --message ""
+  run_task send --from alice --chat test-chat ""
   [ "$status" -ne 0 ]
   [[ "$output" == *"empty"* ]]
 }
@@ -145,7 +145,7 @@ load test_helper
 @test "task send: rejects message over 10 lines" {
   local long_msg
   long_msg=$(printf 'line %s\n' $(seq 1 11))
-  run_task send --from alice --chat test-chat --message "$long_msg"
+  run_task send --from alice --chat test-chat "$long_msg"
   [ "$status" -ne 0 ]
   [[ "$output" == *"too long"* ]]
 }
@@ -153,13 +153,13 @@ load test_helper
 @test "task send: allows message at exactly 10 lines" {
   local msg
   msg=$(printf 'line %s\n' $(seq 1 10))
-  run_task send --from alice --chat test-chat --message "$msg"
+  run_task send --from alice --chat test-chat "$msg"
   [ "$status" -eq 0 ]
 }
 
 @test "task send: guard blocks send when unread messages exist" {
   # alice sends first message (cursor stays 0 — new agent, guard skips)
-  run_task send --from alice --chat test-chat --message "first"
+  run_task send --from alice --chat test-chat "first"
   [ "$status" -eq 0 ]
 
   # alice reads to set cursor > 0
@@ -169,18 +169,18 @@ load test_helper
   send_message "bob" "unread msg"
 
   # alice tries to send — guard should block
-  run_task send --from alice --chat test-chat --message "blocked"
+  run_task send --from alice --chat test-chat "blocked"
   [ "$status" -ne 0 ]
   [[ "$output" == *"unread"* ]]
 }
 
 @test "task send: --force bypasses unread guard" {
-  run_task send --from alice --chat test-chat --message "first"
+  run_task send --from alice --chat test-chat "first"
   [ "$status" -eq 0 ]
   mark_read "alice"
   send_message "bob" "unread"
 
-  run_task send --from alice --chat test-chat --message "forced" --force
+  run_task send --from alice --chat test-chat "forced" --force
   [ "$status" -eq 0 ]
   grep -q "forced" "$CHAT_FILE"
 }
@@ -189,7 +189,7 @@ load test_helper
   # bob has never read — cursor is 0
   send_message "carol" "some message"
   # bob should be able to send despite carol's unread message
-  run_task send --from bob --chat test-chat --message "hi from bob"
+  run_task send --from bob --chat test-chat "hi from bob"
   [ "$status" -eq 0 ]
 }
 
