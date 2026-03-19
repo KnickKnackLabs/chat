@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
-#MISE description="Show new messages and mark as read"
-#USAGE flag "--for <for>" help="Your agent name (omit to just spectate)"
-#USAGE flag "--chat <chat>" help="Chat name (default: auto-detect from git remote)"
-#USAGE flag "--from <from>" help="Filter messages by sender"
+#MISE description="Read messages"
+#USAGE flag "--as <as>" help="Your identity (default: $CHAT_IDENTITY)"
+#USAGE flag "--chat <chat>" help="Chat name (default: $CHAT_CHANNEL or auto-detect)"
+#USAGE flag "--peek" help="Don't advance cursor (just look)"
 #USAGE flag "--all" help="Show all messages, not just unread"
+#USAGE flag "--last <last>" help="Show only the last N messages"
+#USAGE flag "--from <from>" help="Filter messages by sender"
+#USAGE flag "--after <after>" help="Show messages after this date (YYYY-MM-DD)"
+#USAGE flag "--before <before>" help="Show messages before this date (YYYY-MM-DD)"
+#USAGE flag "--json" help="Output as JSON array"
+#USAGE flag "--id" help="Include message IDs in JSON output"
 set -eo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -11,22 +17,58 @@ source "$REPO_DIR/lib/chat.sh"
 chat_resolve "${usage_chat:-}"
 chat_init
 
-agent="${usage_for:-}"
-sender="${usage_from:-}"
-show_all="${usage_all:-}"
+# Resolve identity: --as flag > $CHAT_IDENTITY > spectator mode
+chat_resolve_identity "${usage_as:-}"
+identity="$CHAT_IDENTITY"
 
-# If no --for, treat as --all (spectator mode)
-if [ -z "$agent" ]; then
+peek="${usage_peek:-false}"
+show_all="${usage_all:-false}"
+last_n="${usage_last:-}"
+sender="${usage_from:-}"
+after="${usage_after:-}"
+before="${usage_before:-}"
+as_json="${usage_json:-false}"
+show_ids="${usage_id:-false}"
+
+# No identity → spectator mode (show all, no cursor tracking)
+if [ -z "$identity" ]; then
   show_all="true"
+  peek="true"
 fi
+
+# --- Advanced query path (Python) ---
+# Delegate to Python when we need date filtering or JSON output
+if [ "$as_json" = "true" ] || [ -n "$after" ] || [ -n "$before" ]; then
+  # Determine cursor offset for unread mode
+  cursor_line=0
+  if [ "$show_all" != "true" ] && [ -n "$identity" ]; then
+    cursor_line=$(chat_get_cursor "$identity")
+  fi
+
+  py_args=("$CHAT_FILE" --cursor "$cursor_line")
+  [ -n "$sender" ] && py_args+=(--from "$sender")
+  [ -n "$after" ] && py_args+=(--after "$after")
+  [ -n "$before" ] && py_args+=(--before "$before")
+  [ -n "$last_n" ] && py_args+=(--last "$last_n")
+  [ "$as_json" = "true" ] && py_args+=(--json)
+  [ "$show_ids" = "true" ] && py_args+=(--id)
+
+  uv run --script "$REPO_DIR/lib/read_query.py" "${py_args[@]}"
+
+  # Advance cursor unless --peek
+  if [ "$peek" != "true" ] && [ -n "$identity" ]; then
+    chat_set_cursor "$identity"
+  fi
+  exit 0
+fi
+
+# --- Standard path (bash) ---
 
 filter_by_sender() {
   if [ -z "$sender" ]; then
     cat
     return
   fi
-
-  # Filter message blocks by sender name (case-insensitive)
   local in_match=false
   while IFS= read -r line; do
     if [[ "$line" =~ ^###\  ]]; then
@@ -40,26 +82,51 @@ filter_by_sender() {
   done
 }
 
-# Check for new messages using value (not exit code)
+limit_last_n() {
+  if [ -z "$last_n" ]; then
+    cat
+    return
+  fi
+  # Extract last N message blocks by finding ### headers
+  local input
+  input=$(cat)
+  local headers
+  headers=$(echo "$input" | grep -n '^### ' || true)
+  if [ -z "$headers" ]; then
+    echo "$input"
+    return
+  fi
+  local total_msgs
+  total_msgs=$(echo "$headers" | wc -l | tr -d ' ')
+  if [ "$total_msgs" -le "$last_n" ]; then
+    echo "$input"
+    return
+  fi
+  # Get the line number of the (total - last_n + 1)th header
+  local skip=$((total_msgs - last_n))
+  local start_line
+  start_line=$(echo "$headers" | tail -n +"$((skip + 1))" | head -1 | cut -d: -f1)
+  echo "$input" | tail -n +"$start_line"
+}
+
 if [ "$show_all" = "true" ]; then
   content=$(tail -n +7 "$CHAT_FILE")
+  echo "$content" | filter_by_sender | limit_last_n | chat_format_messages
 else
-  count=$(chat_count_new "$agent")
+  count=$(chat_count_new "$identity")
   if [ "$count" = "0" ]; then
     echo "No new messages in ${CHAT_NAME}."
-    # Still advance cursor so agent stays current
-    if [ -n "$agent" ]; then
-      chat_set_cursor "$agent"
+    if [ "$peek" != "true" ]; then
+      chat_set_cursor "$identity"
     fi
     exit 0
   fi
-  content=$(chat_new_messages "$agent")
+  content=$(chat_new_messages "$identity")
+  echo "$content" | filter_by_sender | limit_last_n | chat_format_messages
 fi
 
-echo "$content" | filter_by_sender | chat_format_messages
-
-# Advance cursor only if we have an agent identity
-if [ -n "$agent" ]; then
+# Advance cursor unless --peek
+if [ "$peek" != "true" ] && [ -n "$identity" ]; then
   echo ""
-  chat_set_cursor "$agent"
+  chat_set_cursor "$identity"
 fi

@@ -3,6 +3,28 @@
 
 CHAT_DATA_DIR="${CHAT_DATA_DIR:-$HOME/.local/share/chat}"
 
+# Resolve the caller's identity
+# Priority: explicit flag > $CHAT_IDENTITY env var > empty (spectator)
+# Usage: chat_resolve_identity [explicit_name]
+# Sets CHAT_IDENTITY (global)
+chat_resolve_identity() {
+  if [ -n "${1:-}" ]; then
+    CHAT_IDENTITY="$1"
+  else
+    CHAT_IDENTITY="${CHAT_IDENTITY:-}"
+  fi
+}
+
+# Resolve identity or fail — for commands that require it
+# Usage: chat_require_identity [explicit_name]
+chat_require_identity() {
+  chat_resolve_identity "${1:-}"
+  if [ -z "$CHAT_IDENTITY" ]; then
+    echo "Error: identity required. Use --as <name> or set \$CHAT_IDENTITY." >&2
+    return 1
+  fi
+}
+
 # Detect chat name from git remote origin of the caller's directory
 # Returns the repo name (last path component, no org prefix) or empty string
 _chat_detect_repo() {
@@ -16,12 +38,14 @@ _chat_detect_repo() {
 }
 
 # Resolve which chat we're targeting
-# Priority: explicit name > git repo > error
+# Priority: explicit name > $CHAT_CHANNEL env var > git repo > "global"
 # Usage: chat_resolve [name]
 # Sets CHAT_NAME, CHAT_FILE, CHAT_CURSOR_DIR
 chat_resolve() {
   if [ -n "${1:-}" ]; then
     CHAT_NAME="$1"
+  elif [ -n "${CHAT_CHANNEL:-}" ]; then
+    CHAT_NAME="$CHAT_CHANNEL"
   else
     CHAT_NAME=$(_chat_detect_repo || true)
     CHAT_NAME="${CHAT_NAME:-global}"
