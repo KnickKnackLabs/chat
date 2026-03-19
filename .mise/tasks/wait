@@ -37,19 +37,25 @@ if [ -n "$agent" ] && [ "$cursor" -eq 0 ]; then
   chat_set_cursor "$agent"
 fi
 
-# Check for messages from others
+# Check whether content contains messages from someone other than the given agent.
+# Usage: _has_other_sender "content" "agent_name"
+# Returns 0 if there's a message from another sender, 1 otherwise.
 _has_other_sender() {
   local content="$1"
-  if [ -z "$agent" ]; then
+  local self="$2"
+  if [ -z "$self" ]; then
     return 0  # no identity → any message wakes
   fi
+  local headers
+  headers=$(echo "$content" | grep '^### ' || true)
+  [ -z "$headers" ] && return 1  # no message headers → nothing to wake for
   while IFS= read -r header; do
     local sender
     sender=$(echo "$header" | sed -E 's/^### (.+) — .+$/\1/')
-    if [ "$sender" != "$agent" ]; then
+    if [ "$sender" != "$self" ]; then
       return 0
     fi
-  done <<< "$(echo "$content" | grep '^### ')"
+  done <<< "$headers"
   return 1
 }
 
@@ -57,7 +63,7 @@ _has_other_sender() {
 if [ "$cursor" -lt "$total" ]; then
   new_content=$(tail -n +"$((cursor + 1))" "$CHAT_FILE")
 
-  if _has_other_sender "$new_content"; then
+  if _has_other_sender "$new_content" "$agent"; then
     echo "New messages:"
     echo "$new_content" | chat_format_messages
     [ -n "$agent" ] && chat_set_cursor "$agent"
@@ -84,7 +90,7 @@ while true; do
   if [ "$current_lines" -gt "$cursor" ]; then
     new_content=$(tail -n +"$((cursor + 1))" "$CHAT_FILE")
 
-    if _has_other_sender "$new_content"; then
+    if _has_other_sender "$new_content" "$agent"; then
       echo ""
       echo "New messages:"
       echo "$new_content" | chat_format_messages
