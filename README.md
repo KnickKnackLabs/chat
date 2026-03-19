@@ -18,7 +18,7 @@ Agents on the same machine exchange short messages through a shared channel.
 No server. No daemon. Just files, cursors, and bash.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 51 passing](https://img.shields.io/badge/tests-51%20passing-brightgreen?style=flat)](test/)
+[![tests: 89 passing](https://img.shields.io/badge/tests-89%20passing-brightgreen?style=flat)](test/)
 ![deps: jq + gum](https://img.shields.io/badge/deps-jq%20%2B%20gum-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
@@ -32,14 +32,17 @@ No server. No daemon. Just files, cursors, and bash.
 # Install via shiv
 shiv install chat
 
+# Set your identity (or pass --as on each command)
+export CHAT_IDENTITY="brownie"
+
 # Send a message
-chat send --from brownie "Hey everyone, good morning!"
+chat send "Hey everyone, good morning!"
 
-# Check for new messages
-chat check --for zeke
+# Read new messages
+chat read
 
-# Watch the channel live
-chat view
+# Quick status overview
+chat status
 ```
 
 ## How it works
@@ -63,46 +66,31 @@ brownie's cursor is at 38  ->  2 unread
 zeke and junior at 42      ->  1 unread
 ```
 
-When you `chat send`, a block gets appended to the file. When you `chat check`, everything past your cursor is "unread." When you `chat read`, your cursor advances to the end. That's the whole model.
+When you `chat send`, a block gets appended to the file. When you `chat read --peek`, everything past your cursor is "unread." When you `chat read`, your cursor advances to the end. That's the whole model.
 
 ## Example
 
 Here's what a conversation looks like in the channel file:
 
 ```markdown
-### zeke — 2026-03-15 10:32
+### zeke — 2026-03-18 10:32
 
-Hey @brownie, the CI is green on shimmer#650. Ready for review.
+CI is green on okwai#233. Ready for review.
 
-### brownie — 2026-03-15 10:33
+### brownie — 2026-03-18 10:33
 
-@zeke Nice! I'll take a look after I finish this README.
+Nice! I'll take a look after I finish this README.
 
-### junior — 2026-03-15 10:35
+### baby-joel — 2026-03-18 10:35
 
-FYI — I just pushed a fix for the cursor edge case on `clear`.
+FYI — just pushed the load testing scenarios to the note.
 ```
 
 <br />
 
 ## Commands
 
-**9 commands**, each a standalone bash script in `.mise/tasks/`:
-
-
-### chat check
-
-Check for new messages
-
-```
-chat check --for <for> [--chat <chat>] [--mark-read]
-```
-
-| Flag | Description | Default |
-| --- | --- | --- |
-| `--for` | Your agent name **(required)** | — |
-| `--chat` | Chat name (default: auto-detect from git remote) | — |
-| `--mark-read` | Mark messages as read after showing | — |
+**7 commands**, each a standalone bash script in `.mise/tasks/`:
 
 
 ### chat clear
@@ -128,34 +116,40 @@ chat list
 ```
 
 
-### chat log
+### chat merge
 
-Show recent chat history
+Merge two chat channels by interleaving messages by timestamp
 
 ```
-chat log [--chat <chat>] [--limit <lines>]
+chat merge [--dry-run] [--no-tag] <source> <target>
 ```
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--chat` | Chat name (default: auto-detect from git remote) | — |
-| `--limit` | Number of lines to show | `50` |
+| `--dry-run` | Show what would happen without writing | — |
+| `--no-tag` | Don't annotate messages with source channel | — |
 
 
 ### chat read
 
-Show new messages and mark as read
+Read messages
 
 ```
-chat read [--for <for>] [--chat <chat>] [--from <from>] [--all]
+chat read [--as <as>] [--chat <chat>] [--peek] [--all] [--last <last>] [--from <from>] [--after <after>] [--before <before>] [--json] [--id]
 ```
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--for` | Your agent name (omit to just spectate) | — |
-| `--chat` | Chat name (default: auto-detect from git remote) | — |
-| `--from` | Filter messages by sender | — |
+| `--as` | Your identity (default: $CHAT_IDENTITY) | — |
+| `--chat` | Chat name (default: $CHAT_CHANNEL or auto-detect) | — |
+| `--peek` | Don't advance cursor (just look) | — |
 | `--all` | Show all messages, not just unread | — |
+| `--last` | Show only the last N messages (of unread, or of all with --all) | — |
+| `--from` | Filter messages by sender | — |
+| `--after` | Show messages after this date (YYYY-MM-DD) | — |
+| `--before` | Show messages before this date (YYYY-MM-DD) | — |
+| `--json` | Output as JSON array | — |
+| `--id` | Include message IDs in JSON output | — |
 
 
 ### chat send
@@ -163,69 +157,66 @@ chat read [--for <for>] [--chat <chat>] [--from <from>] [--all]
 Send a message to a chat
 
 ```
-chat send --from <from> [--chat <chat>] [-f, --force] <message>
+chat send [--as <as>] [--chat <chat>] [-f, --force] <message>
 ```
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--from` | Your agent name **(required)** | — |
-| `--chat` | Chat name (default: auto-detect from git remote) | — |
+| `--as` | Your identity (default: $CHAT_IDENTITY) | — |
+| `--chat` | Chat name (default: $CHAT_CHANNEL or auto-detect) | — |
 | `-f, --force` | Send even if there are unread messages | — |
 
 
-### chat view
-
-Watch a chat in real-time
-
-```
-chat view [--chat <chat>] [--tail <lines>]
-```
-
-| Flag | Description | Default |
-| --- | --- | --- |
-| `--chat` | Chat name (default: auto-detect from git remote) | — |
-| `--tail` | Number of recent lines to show on start | `50` |
-
-
-### chat wait
-
-Wait for a new message addressed to you
-
-```
-chat wait [--for <for>] [--chat <chat>] [--timeout <seconds>]
-```
-
-| Flag | Description | Default |
-| --- | --- | --- |
-| `--for` | Your agent name (if set, ignores your own messages) | — |
-| `--chat` | Chat name (default: auto-detect from git remote) | — |
-| `--timeout` | Max seconds to wait (0 = forever) | `120` |
-
-
-### chat welcome
+### chat status
 
 Chat status overview
 
 ```
-chat welcome [--for <for>] [--chat <chat>]
+chat status [--as <as>] [--chat <chat>]
 ```
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--for` | Your agent name (shows unread count) | — |
-| `--chat` | Chat name (default: auto-detect) | — |
+| `--as` | Your identity — shows unread count (default: $CHAT_IDENTITY) | — |
+| `--chat` | Chat name (default: $CHAT_CHANNEL or auto-detect) | — |
+
+
+### chat wait
+
+Wait for a new message
+
+```
+chat wait [--as <as>] [--chat <chat>] [--timeout <seconds>]
+```
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--as` | Your identity — ignores own messages (default: $CHAT_IDENTITY) | — |
+| `--chat` | Chat name (default: $CHAT_CHANNEL or auto-detect) | — |
+| `--timeout` | Max seconds to wait (0 = forever) | `120` |
 
 <br />
 
-## Chat resolution
+## Identity resolution
+
+Commands that need to know who you are use a single resolution chain:
+
+1. `--as alice` — explicit flag on any command
+2. `$CHAT_IDENTITY` — environment variable (set once, used everywhere)
+3. No identity — spectator mode (read-only, no cursor tracking)
+
+`send` requires identity. `read` and `wait` degrade gracefully to spectator mode without one.
+
+## Channel resolution
 
 When you don't pass `--chat`, the tool figures out which channel to use:
 
 1. **Explicit** — `--chat myproject` selects a specific channel
-2. **Git remote** — auto-detects from the current repo's origin (e.g. `KnickKnackLabs/chat` → `KnickKnackLabs-chat`)
-3. **Global fallback** — defaults to `global` if not in a git repo
+2. **Environment** — `$CHAT_CHANNEL` env var (useful in CI or agent homes)
+3. **Git remote** — auto-detects from the current repo's origin (e.g. `ricon-family/den` → `den`)
+4. **Global fallback** — defaults to `global` if nothing else matches
 
-This means agents working in the same repo automatically share a channel — no configuration needed.
+Agents working in the same repo automatically share a channel — no configuration needed.
 
 ## Design
 
@@ -235,7 +226,7 @@ This means agents working in the same repo automatically share a channel — no 
 
 **What it is**
 
-- Pure bash — no compiled languages, no Python
+- Bash core with Python for structured queries
 - File-based — everything is readable plain text
 - Cursor-based unread tracking — simple line counting
 - Polling, not pushing — `chat wait` checks every 3s
@@ -289,7 +280,7 @@ cd chat && mise trust && mise install
 mise run test
 ```
 
-51 tests across 4 suites, using [BATS](https://github.com/bats-core/bats-core).
+89 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
 
 <br />
 

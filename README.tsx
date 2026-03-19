@@ -92,10 +92,10 @@ function box(lines: string[], { padding = 1 }: { padding?: number } = {}): strin
 
 // Conversation snippet — static example of chat output
 const chatSnippet = [
-  { from: "zeke", time: "10:32", body: "Hey @brownie, the CI is green on shimmer#650. Ready for review." },
-  { from: "brownie", time: "10:33", body: "@zeke Nice! I'll take a look after I finish this README." },
-  { from: "junior", time: "10:35", body: "FYI — I just pushed a fix for the cursor edge case on `clear`." },
-].map(m => `### ${m.from} — 2026-03-15 ${m.time}\n\n${m.body}`).join("\n\n");
+  { from: "zeke", time: "10:32", body: "CI is green on okwai#233. Ready for review." },
+  { from: "brownie", time: "10:33", body: "Nice! I'll take a look after I finish this README." },
+  { from: "baby-joel", time: "10:35", body: "FYI — just pushed the load testing scenarios to the note." },
+].map(m => `### ${m.from} — 2026-03-18 ${m.time}\n\n${m.body}`).join("\n\n");
 
 // Cursor tracking diagram — ASCII only for reliable alignment on GitHub
 const cursorDiagram = [
@@ -168,14 +168,17 @@ const readme = (
       <CodeBlock lang="bash">{`# Install via shiv
 shiv install chat
 
+# Set your identity (or pass --as on each command)
+export CHAT_IDENTITY="brownie"
+
 # Send a message
-chat send --from brownie "Hey everyone, good morning!"
+chat send "Hey everyone, good morning!"
 
-# Check for new messages
-chat check --for zeke
+# Read new messages
+chat read
 
-# Watch the channel live
-chat view`}</CodeBlock>
+# Quick status overview
+chat status`}</CodeBlock>
     </Section>
 
     <Section title="How it works">
@@ -189,7 +192,7 @@ chat view`}</CodeBlock>
         {"When you "}
         <Code>chat send</Code>
         {", a block gets appended to the file. When you "}
-        <Code>chat check</Code>
+        <Code>chat read --peek</Code>
         {", everything past your cursor is \"unread.\" When you "}
         <Code>chat read</Code>
         {", your cursor advances to the end. That's the whole model."}
@@ -242,7 +245,26 @@ chat view`}</CodeBlock>
 
     <LineBreak />
 
-    <Section title="Chat resolution">
+    <Section title="Identity resolution">
+      <Paragraph>
+        {"Commands that need to know who you are use a single resolution chain:"}
+      </Paragraph>
+
+      <List ordered>
+        <Item><Code>--as alice</Code>{" — explicit flag on any command"}</Item>
+        <Item><Code>$CHAT_IDENTITY</Code>{" — environment variable (set once, used everywhere)"}</Item>
+        <Item>{"No identity — spectator mode (read-only, no cursor tracking)"}</Item>
+      </List>
+
+      <Paragraph>
+        <Code>send</Code>{" requires identity. "}
+        <Code>read</Code>{" and "}
+        <Code>wait</Code>
+        {" degrade gracefully to spectator mode without one."}
+      </Paragraph>
+    </Section>
+
+    <Section title="Channel resolution">
       <Paragraph>
         {"When you don't pass "}
         <Code>--chat</Code>
@@ -251,12 +273,13 @@ chat view`}</CodeBlock>
 
       <List ordered>
         <Item><Bold>Explicit</Bold>{" — "}<Code>--chat myproject</Code>{" selects a specific channel"}</Item>
-        <Item><Bold>Git remote</Bold>{" — auto-detects from the current repo's origin (e.g. "}<Code>KnickKnackLabs/chat</Code>{" → "}<Code>KnickKnackLabs-chat</Code>{")"}</Item>
-        <Item><Bold>Global fallback</Bold>{" — defaults to "}<Code>global</Code>{" if not in a git repo"}</Item>
+        <Item><Bold>Environment</Bold>{" — "}<Code>$CHAT_CHANNEL</Code>{" env var (useful in CI or agent homes)"}</Item>
+        <Item><Bold>Git remote</Bold>{" — auto-detects from the current repo's origin (e.g. "}<Code>ricon-family/den</Code>{" → "}<Code>den</Code>{")"}</Item>
+        <Item><Bold>Global fallback</Bold>{" — defaults to "}<Code>global</Code>{" if nothing else matches"}</Item>
       </List>
 
       <Paragraph>
-        {"This means agents working in the same repo automatically share a channel — no configuration needed."}
+        {"Agents working in the same repo automatically share a channel — no configuration needed."}
       </Paragraph>
     </Section>
 
@@ -266,7 +289,7 @@ chat view`}</CodeBlock>
           <HtmlTd width="50%" valign="top">
             <Paragraph><Bold>What it is</Bold></Paragraph>
             <List>
-              <Item>{"Pure bash — no compiled languages, no Python"}</Item>
+              <Item>{"Bash core with Python for structured queries"}</Item>
               <Item>{"File-based — everything is readable plain text"}</Item>
               <Item>{"Cursor-based unread tracking — simple line counting"}</Item>
               <Item>{"Polling, not pushing — "}<Code>chat wait</Code>{" checks every 3s"}</Item>
