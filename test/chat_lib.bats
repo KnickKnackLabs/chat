@@ -22,10 +22,66 @@ load test_helper
   [ "$CHAT_CURSOR_DIR" = "$CHAT_DATA_DIR/.cursors/my-chat" ]
 }
 
+@test "resolve: CHAT_CHANNEL env var takes priority over git remote" {
+  _setup_git_remote "https://github.com/org/repo.git"
+  CHAT_CHANNEL="from-env" CALLER_PWD="$BATS_TEST_TMPDIR/fakerepo" chat_resolve ""
+  [ "$CHAT_NAME" = "from-env" ]
+}
+
+@test "resolve: explicit name takes priority over CHAT_CHANNEL" {
+  CHAT_CHANNEL="from-env" chat_resolve "explicit"
+  [ "$CHAT_NAME" = "explicit" ]
+}
+
 @test "resolve: empty name falls back to global" {
   # No git repo in BATS_TMPDIR, so falls back
   CALLER_PWD="$BATS_TMPDIR" chat_resolve ""
   [ "$CHAT_NAME" = "global" ]
+}
+
+# ============================================================================
+# chat_resolve_identity / chat_require_identity
+# ============================================================================
+
+@test "identity: explicit name sets CHAT_IDENTITY" {
+  chat_resolve_identity "alice"
+  [ "$CHAT_IDENTITY" = "alice" ]
+}
+
+@test "identity: CHAT_IDENTITY env var is used when no explicit name" {
+  export CHAT_IDENTITY="from-env"
+  chat_resolve_identity ""
+  [ "$CHAT_IDENTITY" = "from-env" ]
+}
+
+@test "identity: explicit name overrides env var" {
+  export CHAT_IDENTITY="from-env"
+  chat_resolve_identity "explicit"
+  [ "$CHAT_IDENTITY" = "explicit" ]
+}
+
+@test "identity: empty when neither flag nor env var set" {
+  unset CHAT_IDENTITY
+  chat_resolve_identity ""
+  [ -z "$CHAT_IDENTITY" ]
+}
+
+@test "require_identity: fails when no identity available" {
+  unset CHAT_IDENTITY
+  run chat_require_identity ""
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"identity required"* ]]
+}
+
+@test "require_identity: succeeds with explicit name" {
+  run chat_require_identity "alice"
+  [ "$status" -eq 0 ]
+}
+
+@test "require_identity: succeeds with env var" {
+  export CHAT_IDENTITY="alice"
+  run chat_require_identity ""
+  [ "$status" -eq 0 ]
 }
 
 # ============================================================================

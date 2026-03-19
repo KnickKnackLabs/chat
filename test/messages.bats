@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Tests for messages and merge tasks (Python+uv)
+# Tests for read --json (advanced query) and merge task (Python+uv)
 
 load test_helper
 
@@ -28,73 +28,46 @@ _send_to() {
 }
 
 # ============================================================================
-# messages task
+# read --json (absorbs messages task)
 # ============================================================================
 
-@test "task messages: lists messages in channel" {
-  send_message "alice" "hello from alice"
-  send_message "bob" "reply from bob"
-  run_task messages test-chat
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"alice"* ]]
-  [[ "$output" == *"bob"* ]]
-  [[ "$output" == *"2 message(s)"* ]]
-}
-
-@test "task messages: --from filters by sender" {
-  send_message "alice" "msg from alice"
-  send_message "bob" "msg from bob"
-  send_message "alice" "another from alice"
-  run_task messages test-chat --from alice
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"2 message(s)"* ]]
-  [[ "$output" == *"alice"* ]]
-}
-
-@test "task messages: --last limits count" {
-  send_message "alice" "first"
-  send_message "bob" "second"
-  send_message "carol" "third"
-  run_task messages test-chat --last 2
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"2 message(s)"* ]]
-  [[ "$output" == *"bob"* ]]
-  [[ "$output" == *"carol"* ]]
-}
-
-@test "task messages: --json outputs valid JSON" {
+@test "task read --json: outputs valid JSON" {
   send_message "alice" "json test"
-  run_task messages test-chat --json
+  run_task read --chat test-chat --all --json
   [ "$status" -eq 0 ]
-  # Extract JSON (skip mise's [task] prefix lines on stderr mixed into output)
   local json
   json=$(echo "$output" | sed -n '/^\[$/,$ p')
   echo "$json" | jq '.[0].sender' | grep -q "alice"
-  echo "$json" | jq '.[0].timestamp' | grep -q "2026"
   echo "$json" | jq '.[0].body' | grep -q "json test"
 }
 
-@test "task messages: --json --id includes message IDs" {
-  send_message "alice" "id test"
-  run_task messages test-chat --json --id
+@test "task read --json: --from filters by sender" {
+  send_message "alice" "msg from alice"
+  send_message "bob" "msg from bob"
+  run_task read --chat test-chat --all --json --from alice
   [ "$status" -eq 0 ]
-  # Extract JSON, then check ID is a 12-char hex string
+  local json
+  json=$(echo "$output" | sed -n '/^\[$/,$ p')
+  local count
+  count=$(echo "$json" | jq 'length')
+  [ "$count" -eq 1 ]
+  echo "$json" | jq '.[0].sender' | grep -q "alice"
+}
+
+@test "task read --json --id: includes message IDs" {
+  send_message "alice" "id test"
+  run_task read --chat test-chat --all --json --id
+  [ "$status" -eq 0 ]
   local json id
   json=$(echo "$output" | sed -n '/^\[$/,$ p')
   id=$(echo "$json" | jq -r '.[0].id')
   [ ${#id} -eq 12 ]
 }
 
-@test "task messages: empty channel shows no messages" {
-  run_task messages test-chat
+@test "task read --json: empty channel outputs empty array" {
+  run_task read --chat test-chat --all --json
   [ "$status" -eq 0 ]
-  [[ "$output" == *"No messages"* ]]
-}
-
-@test "task messages: nonexistent channel fails" {
-  run_task messages nonexistent
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"not found"* ]]
+  [[ "$output" == *"[]"* ]]
 }
 
 # ============================================================================

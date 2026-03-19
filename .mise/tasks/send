@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Send a message to a chat"
-#USAGE flag "--from <from>" help="Your agent name" required=#true
-#USAGE flag "--chat <chat>" help="Chat name (default: auto-detect from git remote)"
+#USAGE flag "--as <as>" help="Your identity (default: $CHAT_IDENTITY)"
+#USAGE flag "--chat <chat>" help="Chat name (default: $CHAT_CHANNEL or auto-detect)"
 #USAGE flag "-f --force" help="Send even if there are unread messages"
 #USAGE arg "<message>" help="The message to send (or - for stdin)"
 set -eo pipefail
@@ -11,7 +11,10 @@ source "$REPO_DIR/lib/chat.sh"
 chat_resolve "${usage_chat:-}"
 chat_init
 
-from="$usage_from"
+# Identity required for send
+chat_require_identity "${usage_as:-}"
+from="$CHAT_IDENTITY"
+
 message="${usage_message}"
 
 # Read from stdin if message is "-"

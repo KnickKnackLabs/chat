@@ -7,6 +7,10 @@ setup() {
   export CHAT_DATA_DIR="$BATS_TEST_TMPDIR/chat-data"
   mkdir -p "$CHAT_DATA_DIR"
 
+  # Clear env vars that could leak between tests
+  unset CHAT_IDENTITY
+  unset CHAT_CHANNEL
+
   source "$REPO_DIR/lib/chat.sh"
   chat_resolve "test-chat"
   chat_init
@@ -43,7 +47,7 @@ mark_read() {
 }
 
 # Helper: run a task via mise with isolated env
-# Usage: run_task read --for alice --chat test-chat
+# Usage: run_task read --as alice --chat test-chat
 # Passes CHAT_DATA_DIR and all flags through to `mise run`
 run_task() {
   local task="$1"

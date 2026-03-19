@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Chat status overview"
-#USAGE flag "--for <for>" help="Your agent name (shows unread count)"
-#USAGE flag "--chat <chat>" help="Chat name (default: auto-detect)"
+#USAGE flag "--as <as>" help="Your identity — shows unread count (default: $CHAT_IDENTITY)"
+#USAGE flag "--chat <chat>" help="Chat name (default: $CHAT_CHANNEL or auto-detect)"
 set -eo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -9,7 +9,8 @@ source "$REPO_DIR/lib/chat.sh"
 chat_resolve "${usage_chat:-}"
 chat_init
 
-agent="${usage_for:-}"
+chat_resolve_identity "${usage_as:-}"
+agent="$CHAT_IDENTITY"
 has_gum=false
 command -v gum &>/dev/null && has_gum=true
 
@@ -29,6 +30,8 @@ fi
 resolved=""
 if [ -n "${usage_chat:-}" ]; then
   resolved="--chat flag"
+elif [ -n "${CHAT_CHANNEL:-}" ]; then
+  resolved="\$CHAT_CHANNEL"
 else
   detected=$(_chat_detect_repo || true)
   if [ -n "$detected" ]; then

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-#MISE description="Wait for a new message addressed to you"
-#USAGE flag "--for <for>" help="Your agent name (if set, ignores your own messages)"
-#USAGE flag "--chat <chat>" help="Chat name (default: auto-detect from git remote)"
+#MISE description="Wait for a new message"
+#USAGE flag "--as <as>" help="Your identity — ignores own messages (default: $CHAT_IDENTITY)"
+#USAGE flag "--chat <chat>" help="Chat name (default: $CHAT_CHANNEL or auto-detect)"
 #USAGE flag "--timeout <seconds>" help="Max seconds to wait (0 = forever)" default="120"
 set -eo pipefail
 
@@ -10,13 +10,19 @@ source "$REPO_DIR/lib/chat.sh"
 chat_resolve "${usage_chat:-}"
 chat_init
 
-agent="${usage_for:-}"
+# Identity optional for wait — but needed to ignore own messages
+chat_resolve_identity "${usage_as:-}"
+agent="$CHAT_IDENTITY"
 timeout="${usage_timeout:-120}"
 
 # Use cursor (last-read position) instead of current line count.
 # This way we catch messages sent BEFORE wait started but AFTER
 # the agent's last `read`.
-cursor=$(chat_get_cursor "$agent")
+if [ -n "$agent" ]; then
+  cursor=$(chat_get_cursor "$agent")
+else
+  cursor=$(chat_line_count)
+fi
 total=$(chat_line_count)
 
 # Edge case: cursor beyond file length (e.g., chat was truncated/cleared)
@@ -26,37 +32,46 @@ fi
 
 # Edge case: cursor=0 means agent has never read this chat.
 # Don't dump the entire history — start from current position.
-if [ "$cursor" -eq 0 ]; then
+if [ -n "$agent" ] && [ "$cursor" -eq 0 ]; then
   cursor="$total"
   chat_set_cursor "$agent"
 fi
+
+# Check whether content contains messages from someone other than the given agent.
+# Usage: _has_other_sender "content" "agent_name"
+# Returns 0 if there's a message from another sender, 1 otherwise.
+_has_other_sender() {
+  local content="$1"
+  local self="$2"
+  if [ -z "$self" ]; then
+    return 0  # no identity → any message wakes
+  fi
+  local headers
+  headers=$(echo "$content" | grep '^### ' || true)
+  [ -z "$headers" ] && return 1  # no message headers → nothing to wake for
+  while IFS= read -r header; do
+    local sender
+    sender=$(echo "$header" | sed -E 's/^### (.+) — .+$/\1/')
+    if [ "$sender" != "$self" ]; then
+      return 0
+    fi
+  done <<< "$headers"
+  return 1
+}
 
 # Check if there are already unread messages before we start polling
 if [ "$cursor" -lt "$total" ]; then
   new_content=$(tail -n +"$((cursor + 1))" "$CHAT_FILE")
 
-  # Apply sender filtering: skip if all new messages are from ourselves
-  should_wake=true
-  if [ -n "$agent" ]; then
-    should_wake=false
-    while IFS= read -r header; do
-      sender=$(echo "$header" | sed -E 's/^### (.+) — .+$/\1/')
-      if [ "$sender" != "$agent" ]; then
-        should_wake=true
-        break
-      fi
-    done <<< "$(echo "$new_content" | grep '^### ')"
-  fi
-
-  if [ "$should_wake" = true ]; then
+  if _has_other_sender "$new_content" "$agent"; then
     echo "New messages:"
     echo "$new_content" | chat_format_messages
-    chat_set_cursor "$agent"
+    [ -n "$agent" ] && chat_set_cursor "$agent"
     exit 0
   fi
 
   # Only own messages — advance cursor past them and continue to poll
-  chat_set_cursor "$agent"
+  [ -n "$agent" ] && chat_set_cursor "$agent"
   cursor="$total"
 fi
 
@@ -73,35 +88,14 @@ while true; do
   current_lines=$(chat_line_count)
 
   if [ "$current_lines" -gt "$cursor" ]; then
-    # New content since our cursor position
     new_content=$(tail -n +"$((cursor + 1))" "$CHAT_FILE")
 
-    if [ -z "$agent" ]; then
-      # No --for: wake on any new message
+    if _has_other_sender "$new_content" "$agent"; then
       echo ""
       echo "New messages:"
       echo "$new_content" | chat_format_messages
-      chat_set_cursor "$agent"
+      [ -n "$agent" ] && chat_set_cursor "$agent"
       exit 0
-    else
-      # --for set: wake on any message NOT from this agent
-      # Extract sender names from ### headers (format: "### name — timestamp")
-      has_other_sender=false
-      while IFS= read -r header; do
-        sender=$(echo "$header" | sed -E 's/^### (.+) — .+$/\1/')
-        if [ "$sender" != "$agent" ]; then
-          has_other_sender=true
-          break
-        fi
-      done <<< "$(echo "$new_content" | grep '^### ')"
-
-      if [ "$has_other_sender" = true ]; then
-        echo ""
-        echo "New messages:"
-        echo "$new_content" | chat_format_messages
-        chat_set_cursor "$agent"
-        exit 0
-      fi
     fi
   fi
 
