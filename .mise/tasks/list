@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 #MISE description="List available chats"
+#USAGE flag "--json" help="Output as JSON array"
 set -eo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -11,7 +12,11 @@ count_matches() {
 }
 
 if ! compgen -G "$CHAT_DATA_DIR/*.md" >/dev/null 2>&1; then
-  echo "No chats yet. Create one with: chat send --chat <name> --from <you> \"hello\""
+  if [ "${usage_json:-false}" = "true" ]; then
+    echo "[]"
+  else
+    echo "No chats yet. Create one with: chat send --chat <name> --from <you> \"hello\""
+  fi
   exit 0
 fi
 
@@ -19,21 +24,50 @@ fi
 current=$(_chat_detect_repo || true)
 current="${current:-global}"
 
+# --- JSON output ---
+if [ "${usage_json:-false}" = "true" ]; then
+  first=true
+  echo "["
+  for f in "$CHAT_DATA_DIR"/*.md; do
+    [ -f "$f" ] || continue
+    name=$(basename "$f" .md)
+    msgs=$(count_matches '^### ' "$f" 2>/dev/null)
+    is_current=false
+    [ "$name" = "$current" ] && is_current=true
+
+    # Extract last message header: "sender — YYYY-MM-DD HH:MM"
+    last_header=$(grep '^### ' "$f" 2>/dev/null | tail -1 | sed 's/^### //' || true)
+    last_sender=""
+    last_time=""
+    if [ -n "$last_header" ]; then
+      last_sender=$(echo "$last_header" | sed -E 's/ — .*//')
+      last_time=$(echo "$last_header" | sed -E 's/.* — //')
+    fi
+
+    [ "$first" = true ] && first=false || echo ","
+    printf '  {"name": "%s", "current": %s, "msgs": %s, "last_sender": "%s", "last_time": "%s"}' \
+      "$name" "$is_current" "$msgs" "$last_sender" "$last_time"
+  done
+  echo ""
+  echo "]"
+  exit 0
+fi
+
+# --- Human-readable output ---
 if command -v gum &>/dev/null; then
   rows=""
   for f in "$CHAT_DATA_DIR"/*.md; do
     [ -f "$f" ] || continue
     name=$(basename "$f" .md)
-    lines=$(wc -l < "$f" | tr -d ' ')
     msgs=$(count_matches '^### ' "$f" 2>/dev/null)
     last=$(grep '^### ' "$f" 2>/dev/null | tail -1 | sed 's/^### //' || true)
     last="${last:-—}"
     marker=""
     [ "$name" = "$current" ] && marker=" ←"
-    rows="${rows}${name}${marker}|${msgs}|${lines}|${last}\n"
+    rows="${rows}${name}${marker}|${msgs}|${last}\n"
   done
 
-  printf '%b' "Chat|Msgs|Lines|Last Activity\n${rows}" | \
+  printf '%b' "Chat|Msgs|Last Activity\n${rows}" | \
     gum table -s '|' -p --border.foreground 39
 else
   for f in "$CHAT_DATA_DIR"/*.md; do

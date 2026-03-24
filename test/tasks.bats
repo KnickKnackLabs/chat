@@ -208,6 +208,83 @@ load test_helper
   [ "$status" -eq 0 ]
 }
 
+@test "task send: advances sender cursor so own message is not unread" {
+  # alice sends — this should advance her cursor past her own message
+  run_task send --as alice --chat test-chat "first msg"
+  [ "$status" -eq 0 ]
+
+  # alice sends again — should NOT be blocked by unread guard
+  run_task send --as alice --chat test-chat "second msg"
+  [ "$status" -eq 0 ]
+  grep -q "second msg" "$CHAT_FILE"
+}
+
+# ============================================================================
+# list task
+# ============================================================================
+
+@test "task list --json: outputs valid JSON array" {
+  send_message "alice" "hello"
+  run_task list --json
+  [ "$status" -eq 0 ]
+  echo "$output" | python3 -c "import json,sys; json.load(sys.stdin)"
+}
+
+@test "task list --json: includes channel name and msg count" {
+  send_message "alice" "msg1"
+  send_message "bob" "msg2"
+  run_task list --json
+  [ "$status" -eq 0 ]
+  local entry
+  entry=$(echo "$output" | python3 -c "
+import json, sys
+channels = json.load(sys.stdin)
+for c in channels:
+    if c['name'] == 'test-chat':
+        print(c['msgs'])
+        break
+")
+  [ "$entry" = "2" ]
+}
+
+@test "task list --json: includes last_sender and last_time" {
+  send_message "bob" "latest"
+  run_task list --json
+  [ "$status" -eq 0 ]
+  echo "$output" | python3 -c "
+import json, sys
+channels = json.load(sys.stdin)
+for c in channels:
+    if c['name'] == 'test-chat':
+        assert c['last_sender'] == 'bob', f'expected bob, got {c[\"last_sender\"]}'
+        assert c['last_time'] != '', 'last_time should not be empty'
+        break
+"
+}
+
+@test "task list --json: empty channel has zero msgs and empty sender" {
+  # test-chat exists but has no messages (only the header from chat_init)
+  run_task list --json
+  [ "$status" -eq 0 ]
+  echo "$output" | python3 -c "
+import json, sys
+channels = json.load(sys.stdin)
+for c in channels:
+    if c['name'] == 'test-chat':
+        assert c['msgs'] == 0, f'expected 0 msgs, got {c[\"msgs\"]}'
+        assert c['last_sender'] == '', f'expected empty sender, got {c[\"last_sender\"]}'
+        break
+"
+}
+
+@test "task list: human-readable output has no Lines column" {
+  send_message "alice" "hello"
+  run_task list
+  [ "$status" -eq 0 ]
+  # Should NOT contain "Lines" header
+  ! [[ "$output" == *"Lines"* ]]
+}
+
 # ============================================================================
 # status task (replaces welcome)
 # ============================================================================
@@ -230,4 +307,53 @@ load test_helper
   run_task status --as alice --chat test-chat
   [ "$status" -eq 0 ]
   [[ "$output" == *"No unread"* ]]
+}
+
+@test "task status --json: outputs valid JSON" {
+  send_message "alice" "hello"
+  run_task status --as bob --chat test-chat --json
+  [ "$status" -eq 0 ]
+  echo "$output" | python3 -c "import json,sys; json.load(sys.stdin)"
+}
+
+@test "task status --json: includes unread count with --as" {
+  send_message "alice" "msg1"
+  send_message "alice" "msg2"
+  run_task status --as bob --chat test-chat --json
+  [ "$status" -eq 0 ]
+  local unread
+  unread=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin)['unread'])")
+  [ "$unread" = "2" ]
+}
+
+@test "task status --json: unread is 0 when fully read" {
+  send_message "alice" "hello"
+  mark_read "bob"
+  run_task status --as bob --chat test-chat --json
+  [ "$status" -eq 0 ]
+  local unread
+  unread=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin)['unread'])")
+  [ "$unread" = "0" ]
+}
+
+@test "task status --json: omits unread when no --as" {
+  send_message "alice" "hello"
+  run env CHAT_DATA_DIR="$CHAT_DATA_DIR" \
+    mise run -C "$REPO_DIR" status -- --chat test-chat --json
+  [ "$status" -eq 0 ]
+  echo "$output" | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+assert 'unread' not in data, f'unread should not be present without --as, got: {data}'
+"
+}
+
+@test "task status --json: no human-readable header in output" {
+  send_message "alice" "hello"
+  run_task status --as alice --chat test-chat --json
+  [ "$status" -eq 0 ]
+  # First non-empty char should be '{' (JSON object)
+  local first_char
+  first_char=$(echo "$output" | head -c 1)
+  [ "$first_char" = "{" ]
 }
