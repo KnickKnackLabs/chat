@@ -3,6 +3,7 @@
 #USAGE flag "--as <as>" help="Your identity — ignores own messages (default: $CHAT_IDENTITY)"
 #USAGE flag "--chat <chat>" help="Chat name (default: $CHAT_CHANNEL or auto-detect)"
 #USAGE flag "--timeout <seconds>" help="Max seconds to wait (0 = forever)" default="120"
+#USAGE flag "--forever" help="Wait indefinitely (shorthand for --timeout 0)"
 set -eo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -14,6 +15,10 @@ chat_init
 chat_resolve_identity "${usage_as:-}"
 agent="$CHAT_IDENTITY"
 timeout="${usage_timeout:-120}"
+# --forever overrides --timeout
+if [ "${usage_forever:-false}" = "true" ]; then
+  timeout=0
+fi
 
 # Use cursor (last-read position) instead of current line count.
 # This way we catch messages sent BEFORE wait started but AFTER
