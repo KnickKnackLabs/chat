@@ -194,9 +194,10 @@ chat_count_new() {
     return
   fi
 
-  # grep -c outputs "0" and exits 1 when no matches — capture the count
+  # Count message headers from *other* agents only — your own unread
+  # messages shouldn't block you from sending.
   local count
-  count=$(tail -n +"$((cursor + 1))" "$CHAT_FILE" | grep -c '^### ' || true)
+  count=$(tail -n +"$((cursor + 1))" "$CHAT_FILE" | grep '^### ' | grep -cv "^### ${agent} " || true)
   echo "$count"
 }
 

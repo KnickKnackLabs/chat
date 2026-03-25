@@ -358,6 +358,25 @@ load test_helper
   [ "$count1" = "$count2" ]
 }
 
+@test "count_new: excludes own messages" {
+  mark_read "alice"
+  send_message "alice" "my own msg"
+  send_message "alice" "another of mine"
+  local count
+  count=$(chat_count_new "alice")
+  [ "$count" = "0" ]
+}
+
+@test "count_new: counts only others when mixed" {
+  mark_read "alice"
+  send_message "alice" "mine"
+  send_message "bob" "from bob"
+  send_message "alice" "mine again"
+  local count
+  count=$(chat_count_new "alice")
+  [ "$count" = "1" ]
+}
+
 # ============================================================================
 # chat_list
 # ============================================================================

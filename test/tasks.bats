@@ -241,6 +241,21 @@ load test_helper
   grep -q "second msg" "$CHAT_FILE"
 }
 
+@test "task send: own unread messages do not trigger guard" {
+  # alice sends and reads to set cursor > 0
+  send_message "alice" "setup"
+  mark_read "alice"
+
+  # alice sends — her own message is now "unread" (cursor didn't advance)
+  run chat send --as alice --chat test-chat "first from alice"
+  [ "$status" -eq 0 ]
+
+  # alice sends again — guard should NOT block (only own messages are unread)
+  run chat send --as alice --chat test-chat "second from alice"
+  [ "$status" -eq 0 ]
+  grep -q "second from alice" "$CHAT_FILE"
+}
+
 @test "task send: does not advance sender cursor" {
   # alice sends, then reads (cursor > 0)
   send_message "alice" "setup"
