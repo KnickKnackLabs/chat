@@ -21,14 +21,19 @@ count_matches() {
 
 # --- Stats ---
 total_msgs=$(count_matches '^### ' "$CHAT_FILE" 2>/dev/null)
-total_lines=$(chat_line_count)
 
 last_header=$(grep '^### ' "$CHAT_FILE" 2>/dev/null | tail -1 | sed 's/^### //' || true)
+last_sender=""
+last_time=""
+if [ -n "$last_header" ]; then
+  last_sender=$(echo "$last_header" | sed -E 's/ — .*//')
+  last_time=$(echo "$last_header" | sed -E 's/.* — //')
+fi
 
 participants=$(grep '^### ' "$CHAT_FILE" 2>/dev/null | sed 's/^### //; s/ — .*//' | tr '[:upper:]' '[:lower:]' | sort -u || true)
 if [ -n "$participants" ]; then
   p_count=$(echo "$participants" | wc -l | tr -d ' ')
-  p_names=$(echo "$participants" | paste -sd ', ' -)
+  p_names=$(echo "$participants" | paste -sd ' ' - | sed 's/ /, /g')
 else
   p_count=0
   p_names=""
@@ -38,13 +43,6 @@ fi
 if [ "${usage_json:-false}" = "true" ]; then
   unread=0
   [ -n "$agent" ] && unread=$(chat_count_new "$agent")
-
-  last_sender=""
-  last_time=""
-  if [ -n "$last_header" ]; then
-    last_sender=$(echo "$last_header" | sed -E 's/ — .*//')
-    last_time=$(echo "$last_header" | sed -E 's/.* — //')
-  fi
 
   # Build participants array
   if [ -n "$participants" ]; then
@@ -68,84 +66,40 @@ if [ "${usage_json:-false}" = "true" ]; then
   exit 0
 fi
 
-# --- Human-readable output below ---
+# --- Human-readable output ---
 
-# --- Header ---
-if [ "$has_gum" = true ]; then
-  gum style --bold --foreground 39 --border rounded --padding "0 1" "chat · ${CHAT_NAME}"
-else
-  echo "=== chat · ${CHAT_NAME} ==="
+# Build rows for the table (tab-separated to avoid conflicts with content)
+TAB=$'\t'
+rows=""
+rows="${rows}Messages${TAB}${total_msgs}\n"
+if [ -n "$last_sender" ]; then
+  last_relative=$(chat_relative_time "$last_time")
+  rows="${rows}Last${TAB}${last_sender} · ${last_relative:-$last_time}\n"
 fi
+[ -n "$p_names" ] && rows="${rows}People${TAB}${p_names}\n"
 
-# --- How resolved ---
-resolved=""
-if [ -n "${usage_chat:-}" ]; then
-  resolved="--chat flag"
-elif [ -n "${CHAT_CHANNEL:-}" ]; then
-  resolved="\$CHAT_CHANNEL"
-else
-  detected=$(_chat_detect_repo || true)
-  if [ -n "$detected" ]; then
-    remote_url=$(git -C "${CALLER_PWD:-$PWD}" remote get-url origin 2>/dev/null || true)
-    resolved="git remote (${remote_url})"
-  else
-    resolved="global default"
-  fi
-fi
-
-# Build info block
-info="resolved  ${resolved}"
-info="${info}\nmessages  ${total_msgs}"
-info="${info}\nlines     ${total_lines}"
-[ -n "$last_header" ] && info="${info}\nlast      ${last_header}"
-[ -n "$p_names" ] && info="${info}\npeople    ${p_names} (${p_count})"
-
-if [ "$has_gum" = true ]; then
-  printf '%b\n' "$info" | gum style --padding "0 1"
-else
-  echo ""
-  printf '%b\n' "$info" | sed 's/^/  /'
-fi
-
-# --- Unread ---
+# Unread — only show if there are unreads
 if [ -n "$agent" ]; then
   unread=$(chat_count_new "$agent")
   if [ "$unread" -gt 0 ]; then
-    if [ "$has_gum" = true ]; then
-      gum style --foreground 212 --bold --padding "0 1" "📬 ${unread} unread for ${agent}"
-    else
-      echo ""
-      echo "  >>> ${unread} unread for ${agent}"
-    fi
-  else
-    if [ "$has_gum" = true ]; then
-      gum style --faint --padding "0 1" "No unread messages for ${agent}."
-    else
-      echo ""
-      echo "  No unread messages for ${agent}."
-    fi
+    rows="${rows}Unread${TAB}📬 ${unread}\n"
   fi
 fi
 
-# --- Other chats ---
-other_chats=""
-for f in "$CHAT_DATA_DIR"/*.md; do
-  [ -f "$f" ] || continue
-  name=$(basename "$f" .md)
-  [ "$name" = "$CHAT_NAME" ] && continue
-  msgs=$(count_matches '^### ' "$f" 2>/dev/null)
-  if [ -n "$other_chats" ]; then
-    other_chats="${other_chats}, ${name} (${msgs})"
-  else
-    other_chats="${name} (${msgs})"
-  fi
-done
-
-if [ -n "$other_chats" ]; then
-  if [ "$has_gum" = true ]; then
-    gum style --faint --padding "0 1" "other chats: ${other_chats}"
-  else
-    echo ""
-    echo "  other chats: ${other_chats}"
-  fi
+if [ "$has_gum" = true ]; then
+  printf '%b' "${CHAT_NAME}${TAB}\n${rows}" | gum table \
+    --separator $'\t' \
+    --border rounded \
+    --print \
+    --widths 10,40 \
+    --border.foreground 39 \
+    --cell.foreground 255 \
+    --header.foreground 39 \
+    --header.bold
+else
+  echo "${CHAT_NAME}"
+  echo ""
+  printf '%b' "$rows" | while IFS=$'\t' read -r key val; do
+    printf "  %-10s %s\n" "$key" "$val"
+  done
 fi

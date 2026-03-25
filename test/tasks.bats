@@ -460,14 +460,14 @@ EOF
   send_message "bob" "hey"
   run chat status --as alice --chat test-chat
   [ "$status" -eq 0 ]
-  [[ "$output" == *"unread"* ]]
+  [[ "$output" == *"Unread"* ]]
 }
 
-@test "task status: shows no unread when fully read" {
+@test "task status: hides unread row when fully read" {
   mark_read "alice"
   run chat status --as alice --chat test-chat
   [ "$status" -eq 0 ]
-  [[ "$output" == *"No unread"* ]]
+  [[ "$output" != *"Unread"* ]]
 }
 
 @test "task status --json: outputs valid JSON" {
