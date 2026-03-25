@@ -28,8 +28,7 @@ show_all="${usage_all:-false}"
 
 # --- JSON output ---
 if [ "${usage_json:-false}" = "true" ]; then
-  first=true
-  echo "["
+  json_objects=""
   for f in "$CHAT_DATA_DIR"/*.md; do
     [ -f "$f" ] || continue
     name=$(basename "$f" .md)
@@ -52,12 +51,18 @@ if [ "${usage_json:-false}" = "true" ]; then
       last_time=$(echo "$last_header" | sed -E 's/.* — //')
     fi
 
-    [ "$first" = true ] && first=false || echo ","
-    printf '  {"name": "%s", "current": %s, "msgs": %s, "last_sender": "%s", "last_time": "%s"}' \
-      "$name" "$is_current" "$msgs" "$last_sender" "$last_time"
+    json_objects+=$(jq -n --arg name "$name" --argjson current "$is_current" \
+      --argjson msgs "$msgs" --arg last_sender "$last_sender" \
+      --arg last_time "$last_time" \
+      '{name: $name, current: $current, msgs: $msgs, last_sender: $last_sender, last_time: $last_time}')
+    json_objects+=$'\n'
   done
-  echo ""
-  echo "]"
+
+  if [ -n "$json_objects" ]; then
+    echo "$json_objects" | jq -s .
+  else
+    echo "[]"
+  fi
   exit 0
 fi
 

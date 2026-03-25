@@ -46,15 +46,24 @@ if [ "${usage_json:-false}" = "true" ]; then
     last_time=$(echo "$last_header" | sed -E 's/.* — //')
   fi
 
+  # Build participants array
+  if [ -n "$participants" ]; then
+    p_json=$(echo "$participants" | jq -R . | jq -s .)
+  else
+    p_json="[]"
+  fi
+
   # Build JSON — include unread only when --as is provided
   if [ -n "$agent" ]; then
-    printf '{"name": "%s", "msgs": %s, "unread": %s, "last_sender": "%s", "last_time": "%s", "participants": [%s]}\n' \
-      "$CHAT_NAME" "$total_msgs" "$unread" "$last_sender" "$last_time" \
-      "$(echo "$participants" | sed 's/.*/"&"/' | paste -sd ',' -)"
+    jq -n --arg name "$CHAT_NAME" --argjson msgs "$total_msgs" \
+      --argjson unread "$unread" --arg last_sender "$last_sender" \
+      --arg last_time "$last_time" --argjson participants "$p_json" \
+      '{name: $name, msgs: $msgs, unread: $unread, last_sender: $last_sender, last_time: $last_time, participants: $participants}'
   else
-    printf '{"name": "%s", "msgs": %s, "last_sender": "%s", "last_time": "%s", "participants": [%s]}\n' \
-      "$CHAT_NAME" "$total_msgs" "$last_sender" "$last_time" \
-      "$(echo "$participants" | sed 's/.*/"&"/' | paste -sd ',' -)"
+    jq -n --arg name "$CHAT_NAME" --argjson msgs "$total_msgs" \
+      --arg last_sender "$last_sender" --arg last_time "$last_time" \
+      --argjson participants "$p_json" \
+      '{name: $name, msgs: $msgs, last_sender: $last_sender, last_time: $last_time, participants: $participants}'
   fi
   exit 0
 fi
