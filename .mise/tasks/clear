@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #MISE description="Archive old messages and reset a chat"
-#USAGE flag "--chat <chat>" help="Chat name (default: auto-detect from git remote)"
+#USAGE arg "[chat]" help="Chat name (default: auto-detect from git remote)"
 #USAGE flag "--yes" help="Skip confirmation"
 set -eo pipefail
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Chat status overview"
+#USAGE arg "[chat]" help="Chat name (default: $CHAT_CHANNEL or auto-detect)"
 #USAGE flag "--as <as>" help="Your identity — shows unread count (default: $CHAT_IDENTITY)"
-#USAGE flag "--chat <chat>" help="Chat name (default: $CHAT_CHANNEL or auto-detect)"
 #USAGE flag "--json" help="Output as JSON object"
 set -eo pipefail
 

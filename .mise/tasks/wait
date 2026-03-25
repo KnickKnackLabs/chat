@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Wait for a new message"
+#USAGE arg "[chat]" help="Chat name (default: $CHAT_CHANNEL or auto-detect)"
 #USAGE flag "--as <as>" help="Your identity — ignores own messages (default: $CHAT_IDENTITY)"
-#USAGE flag "--chat <chat>" help="Chat name (default: $CHAT_CHANNEL or auto-detect)"
 #USAGE flag "--timeout <seconds>" help="Max seconds to wait (0 = forever)" default="120"
 #USAGE flag "--forever" help="Wait indefinitely (shorthand for --timeout 0)"
 set -eo pipefail

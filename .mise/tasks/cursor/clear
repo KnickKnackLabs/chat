@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Clear your cursor (mark everything as unread)"
+#USAGE arg "[chat]" help="Chat name (default: $CHAT_CHANNEL or auto-detect)"
 #USAGE flag "--as <as>" help="Your identity (default: $CHAT_IDENTITY)"
-#USAGE flag "--chat <chat>" help="Chat name (default: $CHAT_CHANNEL or auto-detect)"
 set -eo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/chat.sh"

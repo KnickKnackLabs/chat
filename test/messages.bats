@@ -33,7 +33,7 @@ _send_to() {
 
 @test "task read --json: outputs valid JSON" {
   send_message "alice" "json test"
-  run chat read --chat test-chat --all --json
+  run chat read test-chat --all --json
   [ "$status" -eq 0 ]
   local json
   json=$(echo "$output" | sed -n '/^\[$/,$ p')
@@ -44,7 +44,7 @@ _send_to() {
 @test "task read --json: --from filters by sender" {
   send_message "alice" "msg from alice"
   send_message "bob" "msg from bob"
-  run chat read --chat test-chat --all --json --from alice
+  run chat read test-chat --all --json --from alice
   [ "$status" -eq 0 ]
   local json
   json=$(echo "$output" | sed -n '/^\[$/,$ p')
@@ -56,7 +56,7 @@ _send_to() {
 
 @test "task read --json --id: includes message IDs" {
   send_message "alice" "id test"
-  run chat read --chat test-chat --all --json --id
+  run chat read test-chat --all --json --id
   [ "$status" -eq 0 ]
   local json id
   json=$(echo "$output" | sed -n '/^\[$/,$ p')
@@ -65,7 +65,7 @@ _send_to() {
 }
 
 @test "task read --json: empty channel outputs empty array" {
-  run chat read --chat test-chat --all --json
+  run chat read test-chat --all --json
   [ "$status" -eq 0 ]
   [[ "$output" == *"[]"* ]]
 }
