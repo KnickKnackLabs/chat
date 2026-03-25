@@ -579,3 +579,47 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
   [ -f "$CHAT_DATA_DIR/brand-new-channel.md" ]
   grep -q "first message" "$CHAT_DATA_DIR/brand-new-channel.md"
 }
+
+# ============================================================================
+# remove task
+# ============================================================================
+
+@test "task remove: deletes channel file and cursor dir" {
+  send_message "alice" "hello"
+  mark_read "alice"
+  [ -f "$CHAT_FILE" ]
+  [ -d "$CHAT_CURSOR_DIR" ]
+
+  run chat remove --chat test-chat --yes
+  [ "$status" -eq 0 ]
+  [ ! -f "$CHAT_FILE" ]
+  [ ! -d "$CHAT_CURSOR_DIR" ]
+  [[ "$output" == *"Removed"* ]]
+}
+
+@test "task remove: fails on non-existent channel" {
+  run chat remove --chat no-such-channel --yes
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"does not exist"* ]]
+}
+
+@test "task remove: channel no longer appears in list" {
+  send_message "alice" "hello"
+  run chat list --json
+  echo "$output" | python3 -c "
+import json, sys
+names = [c['name'] for c in json.load(sys.stdin)]
+assert 'test-chat' in names, f'expected test-chat in {names}'
+"
+
+  run chat remove --chat test-chat --yes
+  [ "$status" -eq 0 ]
+
+  run chat list --json
+  [ "$status" -eq 0 ]
+  echo "$output" | python3 -c "
+import json, sys
+names = [c['name'] for c in json.load(sys.stdin)]
+assert 'test-chat' not in names, f'test-chat should be gone, got {names}'
+"
+}

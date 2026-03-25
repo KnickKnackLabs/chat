@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+#MISE description="Permanently remove a chat channel"
+#USAGE flag "--chat <chat>" help="Chat name (default: auto-detect from git remote)"
+#USAGE flag "--yes" help="Skip confirmation"
+set -eo pipefail
+
+source "$MISE_CONFIG_ROOT/lib/chat.sh"
+chat_resolve "${usage_chat:-}"
+chat_require_file
+
+if [ "${usage_yes:-}" != "true" ]; then
+  if command -v gum &>/dev/null; then
+    gum confirm "Permanently remove chat '${CHAT_NAME}'? This cannot be undone." || {
+      echo "Cancelled."
+      exit 0
+    }
+  else
+    echo "Permanently remove chat '${CHAT_NAME}'? This cannot be undone."
+    echo -n "Continue? [y/N] "
+    read -r confirm
+    if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
+      echo "Cancelled."
+      exit 0
+    fi
+  fi
+fi
+
+rm -f "$CHAT_FILE"
+rm -rf "$CHAT_CURSOR_DIR"
+
+echo "Removed chat '${CHAT_NAME}'."
