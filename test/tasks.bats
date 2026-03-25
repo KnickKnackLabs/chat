@@ -533,3 +533,49 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
   [ "$status" -ne 0 ]
   [[ "$output" == *"identity required"* ]]
 }
+
+# ============================================================================
+# non-existent channel — read-only commands should fail, send should create
+# ============================================================================
+
+@test "task read: fails on non-existent channel" {
+  run chat read --chat no-such-channel
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"does not exist"* ]]
+}
+
+@test "task read: does not create file for non-existent channel" {
+  run chat read --chat no-such-channel
+  [ ! -f "$CHAT_DATA_DIR/no-such-channel.md" ]
+}
+
+@test "task status: fails on non-existent channel" {
+  run chat status --chat no-such-channel
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"does not exist"* ]]
+}
+
+@test "task wait: fails on non-existent channel" {
+  run chat wait --chat no-such-channel --timeout 1
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"does not exist"* ]]
+}
+
+@test "task clear: fails on non-existent channel" {
+  run chat clear --chat no-such-channel --yes
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"does not exist"* ]]
+}
+
+@test "task cursor:clear: fails on non-existent channel" {
+  run chat cursor:clear --as alice --chat no-such-channel
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"does not exist"* ]]
+}
+
+@test "task send: creates channel that did not exist" {
+  run chat send --as alice --chat brand-new-channel "first message"
+  [ "$status" -eq 0 ]
+  [ -f "$CHAT_DATA_DIR/brand-new-channel.md" ]
+  grep -q "first message" "$CHAT_DATA_DIR/brand-new-channel.md"
+}

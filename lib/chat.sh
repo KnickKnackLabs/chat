@@ -54,6 +54,15 @@ chat_resolve() {
   CHAT_CURSOR_DIR="$CHAT_DATA_DIR/.cursors/${CHAT_NAME}"
 }
 
+# Require that the chat file already exists — for read-only commands
+chat_require_file() {
+  if [ ! -f "$CHAT_FILE" ]; then
+    echo "Error: chat '${CHAT_NAME}' does not exist." >&2
+    echo "Create it by sending a message: chat send --chat ${CHAT_NAME} --as <name> \"hello\"" >&2
+    return 1
+  fi
+}
+
 # Ensure chat infrastructure exists
 chat_init() {
   mkdir -p "$CHAT_DATA_DIR" "$CHAT_CURSOR_DIR"

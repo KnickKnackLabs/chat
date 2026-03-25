@@ -8,7 +8,7 @@ set -eo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/chat.sh"
 chat_resolve "${usage_chat:-}"
-chat_init
+chat_require_file
 
 # Identity optional for wait — but needed to ignore own messages
 chat_resolve_identity "${usage_as:-}"

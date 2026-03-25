@@ -6,7 +6,7 @@ set -eo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/chat.sh"
 chat_resolve "${usage_chat:-}"
-chat_init
+chat_require_file
 chat_require_identity "${usage_as:-}"
 
 cursor_file="$CHAT_CURSOR_DIR/$CHAT_IDENTITY"
