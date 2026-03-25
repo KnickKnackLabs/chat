@@ -8,6 +8,11 @@ source "$MISE_CONFIG_ROOT/lib/chat.sh"
 chat_resolve "${usage_chat:-}"
 chat_require_file
 
+if [ "$CHAT_NAME" = "global" ]; then
+  echo "Error: cannot remove the global channel." >&2
+  exit 1
+fi
+
 if [ "${usage_yes:-}" != "true" ]; then
   if command -v gum &>/dev/null; then
     gum confirm "Permanently remove chat '${CHAT_NAME}'? This cannot be undone." || {

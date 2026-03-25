@@ -603,6 +603,17 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
   [[ "$output" == *"does not exist"* ]]
 }
 
+@test "task remove: refuses to remove global channel" {
+  # Create the global channel
+  chat_resolve "global"
+  chat_init
+  run chat remove --chat global --yes
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"cannot remove the global channel"* ]]
+  # File should still exist
+  [ -f "$CHAT_DATA_DIR/global.md" ]
+}
+
 @test "task remove: channel no longer appears in list" {
   send_message "alice" "hello"
   run chat list --json
