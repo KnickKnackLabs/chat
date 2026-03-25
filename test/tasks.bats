@@ -12,7 +12,7 @@ load test_helper
 
 @test "task read: no new messages exits 0" {
   mark_read "alice"
-  run chat read --as alice --chat test-chat
+  run chat read test-chat --as alice
   [ "$status" -eq 0 ]
   [[ "$output" == *"No new messages"* ]]
 }
@@ -20,7 +20,7 @@ load test_helper
 @test "task read: shows unread messages" {
   mark_read "alice"
   send_message "bob" "hey alice"
-  run chat read --as alice --chat test-chat
+  run chat read test-chat --as alice
   [ "$status" -eq 0 ]
   [[ "$output" == *"hey alice"* ]]
 }
@@ -28,11 +28,11 @@ load test_helper
 @test "task read: advances cursor after reading" {
   mark_read "alice"
   send_message "bob" "msg1"
-  run chat read --as alice --chat test-chat
+  run chat read test-chat --as alice
   [ "$status" -eq 0 ]
 
   # Second read should show no new messages
-  run chat read --as alice --chat test-chat
+  run chat read test-chat --as alice
   [ "$status" -eq 0 ]
   [[ "$output" == *"No new messages"* ]]
 }
@@ -43,7 +43,7 @@ load test_helper
   local cursor_before
   cursor_before=$(chat_get_cursor "alice")
 
-  run chat read --as alice --chat test-chat --peek
+  run chat read test-chat --as alice --peek
   [ "$status" -eq 0 ]
   [[ "$output" == *"peeked"* ]]
 
@@ -56,7 +56,7 @@ load test_helper
   send_message "bob" "visible"
   mark_read "alice"
   send_message "carol" "also visible"
-  run chat read --as alice --chat test-chat --all
+  run chat read test-chat --as alice --all
   [ "$status" -eq 0 ]
   [[ "$output" == *"visible"* ]]
   [[ "$output" == *"also visible"* ]]
@@ -64,7 +64,7 @@ load test_helper
 
 @test "task read: without --as uses spectator mode (shows all)" {
   send_message "bob" "hello"
-  run chat read --chat test-chat
+  run chat read test-chat
   [ "$status" -eq 0 ]
   [[ "$output" == *"hello"* ]]
 }
@@ -72,7 +72,7 @@ load test_helper
 @test "task read: CHAT_IDENTITY env var used when --as omitted" {
   mark_read "alice"
   send_message "bob" "env-identity test"
-  run env CHAT_IDENTITY="alice" chat read --chat test-chat
+  CHAT_IDENTITY="alice" run chat read test-chat
   [ "$status" -eq 0 ]
   [[ "$output" == *"env-identity test"* ]]
 }
@@ -81,7 +81,7 @@ load test_helper
   mark_read "alice"
   send_message "bob" "from bob"
   send_message "carol" "from carol"
-  run chat read --as alice --chat test-chat --from bob
+  run chat read test-chat --as alice --from bob
   [ "$status" -eq 0 ]
   [[ "$output" == *"from bob"* ]]
   [[ "$output" != *"from carol"* ]]
@@ -91,7 +91,7 @@ load test_helper
   send_message "alice" "first"
   send_message "bob" "second"
   send_message "carol" "third"
-  run chat read --chat test-chat --all --last 1
+  run chat read test-chat --all --last 1
   [ "$status" -eq 0 ]
   [[ "$output" == *"third"* ]]
   [[ "$output" != *"first"* ]]
@@ -103,7 +103,7 @@ load test_helper
   mark_read "carol"
   send_message "alice" "new"
   # carol's cursor is past "old" and "also old", but --last 3 should show all 3
-  run chat read --as carol --chat test-chat --last 3
+  run chat read test-chat --as carol --last 3
   [ "$status" -eq 0 ]
   [[ "$output" == *"old"* ]]
   [[ "$output" == *"also old"* ]]
@@ -115,7 +115,7 @@ load test_helper
   mark_read "bob"
   send_message "alice" "after cursor"
   # bob's cursor is past "before cursor", but --from alice should show both
-  run chat read --as bob --chat test-chat --from alice
+  run chat read test-chat --as bob --from alice
   [ "$status" -eq 0 ]
   [[ "$output" == *"before cursor"* ]]
   [[ "$output" == *"after cursor"* ]]
@@ -129,7 +129,7 @@ load test_helper
   cursor_before=$(chat_get_cursor "alice")
 
   send_message "bob" "new"
-  run chat read --as alice --chat test-chat
+  run chat read test-chat --as alice
   [ "$status" -eq 0 ]
 
   local cursor_after
@@ -269,7 +269,7 @@ load test_helper
   [ "$status" -eq 0 ]
 
   # alice's cursor should NOT have advanced — bob's message is still unread
-  run chat read --as alice --chat test-chat
+  run chat read test-chat --as alice
   [ "$status" -eq 0 ]
   [[ "$output" == *"hey alice"* ]]
 }
@@ -451,28 +451,28 @@ EOF
 # ============================================================================
 
 @test "task status: shows chat name" {
-  run chat status --chat test-chat
+  run chat status test-chat
   [ "$status" -eq 0 ]
   [[ "$output" == *"test-chat"* ]]
 }
 
 @test "task status: shows unread count with --as" {
   send_message "bob" "hey"
-  run chat status --as alice --chat test-chat
+  run chat status test-chat --as alice
   [ "$status" -eq 0 ]
   [[ "$output" == *"Unread"* ]]
 }
 
 @test "task status: hides unread row when fully read" {
   mark_read "alice"
-  run chat status --as alice --chat test-chat
+  run chat status test-chat --as alice
   [ "$status" -eq 0 ]
   [[ "$output" != *"Unread"* ]]
 }
 
 @test "task status --json: outputs valid JSON" {
   send_message "alice" "hello"
-  run chat status --as bob --chat test-chat --json
+  run chat status test-chat --as bob --json
   [ "$status" -eq 0 ]
   echo "$output" | python3 -c "import json,sys; json.load(sys.stdin)"
 }
@@ -480,7 +480,7 @@ EOF
 @test "task status --json: includes unread count with --as" {
   send_message "alice" "msg1"
   send_message "alice" "msg2"
-  run chat status --as bob --chat test-chat --json
+  run chat status test-chat --as bob --json
   [ "$status" -eq 0 ]
   local unread
   unread=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin)['unread'])")
@@ -490,7 +490,7 @@ EOF
 @test "task status --json: unread is 0 when fully read" {
   send_message "alice" "hello"
   mark_read "bob"
-  run chat status --as bob --chat test-chat --json
+  run chat status test-chat --as bob --json
   [ "$status" -eq 0 ]
   local unread
   unread=$(echo "$output" | python3 -c "import json,sys; print(json.load(sys.stdin)['unread'])")
@@ -500,7 +500,7 @@ EOF
 @test "task status --json: omits unread when no --as" {
   send_message "alice" "hello"
   unset CHAT_IDENTITY
-  run chat status --chat test-chat --json
+  run chat status test-chat --json
   [ "$status" -eq 0 ]
   echo "$output" | python3 -c "
 import json, sys
@@ -511,7 +511,7 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
 
 @test "task status --json: no human-readable header in output" {
   send_message "alice" "hello"
-  run chat status --as alice --chat test-chat --json
+  run chat status test-chat --as alice --json
   [ "$status" -eq 0 ]
   # First non-empty char should be '{' (JSON object)
   local first_char
@@ -530,7 +530,7 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
   cursor=$(chat_get_cursor "bob")
   [ "$cursor" -gt 0 ]
 
-  run chat cursor:clear --as bob --chat test-chat
+  run chat cursor:clear test-chat --as bob
   [ "$status" -eq 0 ]
 
   cursor=$(chat_get_cursor "bob")
@@ -546,7 +546,7 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
   count=$(chat_count_new "bob")
   [ "$count" = "0" ]
 
-  run chat cursor:clear --as bob --chat test-chat
+  run chat cursor:clear test-chat --as bob
   [ "$status" -eq 0 ]
 
   # Now bob should see the message as unread
@@ -555,14 +555,14 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
 }
 
 @test "task cursor:clear: no-op when cursor doesn't exist" {
-  run chat cursor:clear --as newagent --chat test-chat
+  run chat cursor:clear test-chat --as newagent
   [ "$status" -eq 0 ]
   [[ "$output" == *"already at start"* ]]
 }
 
 @test "task cursor:clear: requires identity" {
   unset CHAT_IDENTITY
-  run chat cursor:clear --chat test-chat
+  run chat cursor:clear test-chat
   [ "$status" -ne 0 ]
   [[ "$output" == *"identity required"* ]]
 }
@@ -572,36 +572,36 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
 # ============================================================================
 
 @test "task read: fails on non-existent channel" {
-  run chat read --chat no-such-channel
+  run chat read no-such-channel
   [ "$status" -ne 0 ]
   [[ "$output" == *"does not exist"* ]]
 }
 
 @test "task read: does not create file for non-existent channel" {
-  run chat read --chat no-such-channel
+  run chat read no-such-channel
   [ ! -f "$CHAT_DATA_DIR/no-such-channel.md" ]
 }
 
 @test "task status: fails on non-existent channel" {
-  run chat status --chat no-such-channel
+  run chat status no-such-channel
   [ "$status" -ne 0 ]
   [[ "$output" == *"does not exist"* ]]
 }
 
 @test "task wait: fails on non-existent channel" {
-  run chat wait --chat no-such-channel --timeout 1
+  run chat wait no-such-channel --timeout 1
   [ "$status" -ne 0 ]
   [[ "$output" == *"does not exist"* ]]
 }
 
 @test "task clear: fails on non-existent channel" {
-  run chat clear --chat no-such-channel --yes
+  run chat clear no-such-channel --yes
   [ "$status" -ne 0 ]
   [[ "$output" == *"does not exist"* ]]
 }
 
 @test "task cursor:clear: fails on non-existent channel" {
-  run chat cursor:clear --as alice --chat no-such-channel
+  run chat cursor:clear no-such-channel --as alice
   [ "$status" -ne 0 ]
   [[ "$output" == *"does not exist"* ]]
 }
@@ -623,7 +623,7 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
   [ -f "$CHAT_FILE" ]
   [ -d "$CHAT_CURSOR_DIR" ]
 
-  run chat remove --chat test-chat --yes
+  run chat remove test-chat --yes
   [ "$status" -eq 0 ]
   [ ! -f "$CHAT_FILE" ]
   [ ! -d "$CHAT_CURSOR_DIR" ]
@@ -631,7 +631,7 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
 }
 
 @test "task remove: fails on non-existent channel" {
-  run chat remove --chat no-such-channel --yes
+  run chat remove no-such-channel --yes
   [ "$status" -ne 0 ]
   [[ "$output" == *"does not exist"* ]]
 }
@@ -640,7 +640,7 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
   # Create the global channel
   chat_resolve "global"
   chat_init
-  run chat remove --chat global --yes
+  run chat remove global --yes
   [ "$status" -ne 0 ]
   [[ "$output" == *"cannot remove the global channel"* ]]
   # File should still exist
@@ -656,7 +656,7 @@ names = [c['name'] for c in json.load(sys.stdin)]
 assert 'test-chat' in names, f'expected test-chat in {names}'
 "
 
-  run chat remove --chat test-chat --yes
+  run chat remove test-chat --yes
   [ "$status" -eq 0 ]
 
   run chat list --json

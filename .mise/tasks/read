@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Read messages"
+#USAGE arg "[chat]" help="Chat name (default: $CHAT_CHANNEL or auto-detect)"
 #USAGE flag "--as <as>" help="Your identity (default: $CHAT_IDENTITY)"
-#USAGE flag "--chat <chat>" help="Chat name (default: $CHAT_CHANNEL or auto-detect)"
 #USAGE flag "--peek" help="Don't advance cursor (just look)"
 #USAGE flag "--all" help="Show all messages, not just unread"
 #USAGE flag "--last <last>" help="Show only the last N messages (of unread, or of all with --all)"
