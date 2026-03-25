@@ -49,7 +49,4 @@ if [ "${usage_force:-false}" != "true" ]; then
 fi
 
 chat_append "$from" "$message"
-# Advance sender's cursor — the sender knows what they wrote, so their own
-# message should never appear as "unread" to them.
-chat_set_cursor "$from"
 echo "Sent to ${CHAT_NAME}."

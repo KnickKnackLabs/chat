@@ -230,15 +230,33 @@ load test_helper
   [ "$status" -eq 0 ]
 }
 
-@test "task send: advances sender cursor so own message is not unread" {
-  # alice sends — this should advance her cursor past her own message
+@test "task send: new agent can send multiple times without reading (cursor=0)" {
+  # alice has never read — cursor stays at 0, guard is skipped
   run chat send --as alice --chat test-chat "first msg"
   [ "$status" -eq 0 ]
 
-  # alice sends again — should NOT be blocked by unread guard
+  # alice sends again — still cursor=0, guard still skipped
   run chat send --as alice --chat test-chat "second msg"
   [ "$status" -eq 0 ]
   grep -q "second msg" "$CHAT_FILE"
+}
+
+@test "task send: does not advance sender cursor" {
+  # alice sends, then reads (cursor > 0)
+  send_message "alice" "setup"
+  mark_read "alice"
+
+  # bob sends a message alice hasn't read
+  send_message "bob" "hey alice"
+
+  # alice sends with --force to bypass the guard
+  run chat send --as alice --chat test-chat --force "replying without reading"
+  [ "$status" -eq 0 ]
+
+  # alice's cursor should NOT have advanced — bob's message is still unread
+  run chat read --as alice --chat test-chat
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"hey alice"* ]]
 }
 
 # ============================================================================
