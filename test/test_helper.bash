@@ -1,6 +1,6 @@
 # test_helper.bash — shared setup for chat BATS tests
 
-REPO_DIR="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
+export MISE_CONFIG_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
 
 setup() {
   # BATS_TEST_TMPDIR is unique per test and auto-cleaned by BATS (1.4+)
@@ -11,7 +11,7 @@ setup() {
   unset CHAT_IDENTITY
   unset CHAT_CHANNEL
 
-  source "$REPO_DIR/lib/chat.sh"
+  source "$MISE_CONFIG_ROOT/lib/chat.sh"
   chat_resolve "test-chat"
   chat_init
 }
@@ -46,13 +46,14 @@ mark_read() {
   chat_set_cursor "$agent"
 }
 
-# Helper: run a task via mise with isolated env
-# Usage: run_task read --as alice --chat test-chat
-# Passes CHAT_DATA_DIR and all flags through to `mise run`
-run_task() {
+# Shim: call chat tasks like real CLI usage
+# Usage: chat read --as alice --chat test-chat
+#        chat list --json
+# No `--` separator needed — mise parses task flags via #USAGE specs.
+chat() {
   local task="$1"
   shift
-
-  run env CHAT_DATA_DIR="$CHAT_DATA_DIR" \
-    mise run -C "$REPO_DIR" "$task" -- "$@"
+  env CHAT_DATA_DIR="$CHAT_DATA_DIR" \
+    mise run -C "$MISE_CONFIG_ROOT" -q "$task" "$@"
 }
+export -f chat

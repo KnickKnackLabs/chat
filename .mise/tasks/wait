@@ -6,8 +6,7 @@
 #USAGE flag "--forever" help="Wait indefinitely (shorthand for --timeout 0)"
 set -eo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-source "$REPO_DIR/lib/chat.sh"
+source "$MISE_CONFIG_ROOT/lib/chat.sh"
 chat_resolve "${usage_chat:-}"
 chat_init
 
