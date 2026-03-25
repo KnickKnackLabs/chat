@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+#MISE description="Clear your cursor (mark everything as unread)"
+#USAGE flag "--as <as>" help="Your identity (default: $CHAT_IDENTITY)"
+#USAGE flag "--chat <chat>" help="Chat name (default: $CHAT_CHANNEL or auto-detect)"
+set -eo pipefail
+
+source "$MISE_CONFIG_ROOT/lib/chat.sh"
+chat_resolve "${usage_chat:-}"
+chat_init
+chat_require_identity "${usage_as:-}"
+
+cursor_file="$CHAT_CURSOR_DIR/$CHAT_IDENTITY"
+
+if [ ! -f "$cursor_file" ]; then
+  echo "No cursor for $CHAT_IDENTITY on $CHAT_NAME (already at start)."
+  exit 0
+fi
+
+rm -f "$cursor_file"
+echo "Cursor cleared for $CHAT_IDENTITY on $CHAT_NAME."

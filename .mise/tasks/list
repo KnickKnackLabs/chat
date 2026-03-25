@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #MISE description="List available chats"
 #USAGE flag "--json" help="Output as JSON array"
+#USAGE flag "--all" help="Include empty channels (hidden by default)"
 set -eo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-source "$REPO_DIR/lib/chat.sh"
+source "$MISE_CONFIG_ROOT/lib/chat.sh"
 
 # Safe grep -c
 count_matches() {
@@ -24,6 +24,8 @@ fi
 current=$(_chat_detect_repo || true)
 current="${current:-global}"
 
+show_all="${usage_all:-false}"
+
 # --- JSON output ---
 if [ "${usage_json:-false}" = "true" ]; then
   first=true
@@ -32,6 +34,12 @@ if [ "${usage_json:-false}" = "true" ]; then
     [ -f "$f" ] || continue
     name=$(basename "$f" .md)
     msgs=$(count_matches '^### ' "$f" 2>/dev/null)
+
+    # Skip empty channels unless --all
+    if [ "$show_all" != "true" ] && [ "$msgs" -eq 0 ]; then
+      continue
+    fi
+
     is_current=false
     [ "$name" = "$current" ] && is_current=true
 
@@ -54,28 +62,45 @@ if [ "${usage_json:-false}" = "true" ]; then
 fi
 
 # --- Human-readable output ---
-if command -v gum &>/dev/null; then
-  rows=""
-  for f in "$CHAT_DATA_DIR"/*.md; do
-    [ -f "$f" ] || continue
-    name=$(basename "$f" .md)
-    msgs=$(count_matches '^### ' "$f" 2>/dev/null)
-    last=$(grep '^### ' "$f" 2>/dev/null | tail -1 | sed 's/^### //' || true)
-    last="${last:-—}"
-    marker=""
-    [ "$name" = "$current" ] && marker=" ←"
-    rows="${rows}${name}${marker}|${msgs}|${last}\n"
-  done
 
-  printf '%b' "Chat|Msgs|Last Activity\n${rows}" | \
+# Collect rows with epoch for sorting
+# Format: epoch \t name|msgs|last
+rows_with_epoch=""
+
+for f in "$CHAT_DATA_DIR"/*.md; do
+  [ -f "$f" ] || continue
+  name=$(basename "$f" .md)
+  msgs=$(count_matches '^### ' "$f" 2>/dev/null)
+
+  # Skip empty channels unless --all
+  if [ "$show_all" != "true" ] && [ "$msgs" -eq 0 ]; then
+    continue
+  fi
+
+  last_header=$(grep '^### ' "$f" 2>/dev/null | tail -1 | sed 's/^### //' || true)
+  epoch=0
+  if [ -n "$last_header" ]; then
+    last_time=$(echo "$last_header" | sed -E 's/.* — //')
+    last=$(chat_relative_time "$last_time")
+    epoch=$(_chat_to_epoch "$last_time" 2>/dev/null || echo 0)
+  else
+    last="—"
+  fi
+  marker=""
+  [ "$name" = "$current" ] && marker=" ←"
+  rows_with_epoch="${rows_with_epoch}${epoch}\t${name}${marker}|${msgs}|${last}\n"
+done
+
+if command -v gum &>/dev/null; then
+  # Sort by epoch descending (most recent first), then strip the epoch column
+  sorted_rows=$(printf '%b' "$rows_with_epoch" | sort -t$'\t' -k1 -rn | cut -f2-)
+  printf '%s\n%s' "Chat|Msgs|Last Active" "$sorted_rows" | \
     gum table -s '|' -p --border.foreground 39
 else
-  for f in "$CHAT_DATA_DIR"/*.md; do
-    [ -f "$f" ] || continue
-    name=$(basename "$f" .md)
-    msgs=$(count_matches '^### ' "$f" 2>/dev/null)
-    marker=""
-    [ "$name" = "$current" ] && marker=" (current)"
-    echo "${name}${marker} — ${msgs} message(s)"
+  # Fallback: sort and plain output
+  printf '%b' "$rows_with_epoch" | sort -t$'\t' -k1 -rn | while IFS=$'\t' read -r _ row; do
+    name_part=$(echo "$row" | cut -d'|' -f1)
+    msgs_part=$(echo "$row" | cut -d'|' -f2)
+    echo "${name_part} — ${msgs_part} message(s)"
   done
 fi
