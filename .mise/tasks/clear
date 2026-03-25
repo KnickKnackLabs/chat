@@ -4,10 +4,9 @@
 #USAGE flag "--yes" help="Skip confirmation"
 set -eo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-source "$REPO_DIR/lib/chat.sh"
+source "$MISE_CONFIG_ROOT/lib/chat.sh"
 chat_resolve "${usage_chat:-}"
-chat_init
+chat_require_file
 
 ARCHIVE_DIR="$CHAT_DATA_DIR/archive"
 mkdir -p "$ARCHIVE_DIR"

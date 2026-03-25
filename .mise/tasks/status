@@ -2,12 +2,12 @@
 #MISE description="Chat status overview"
 #USAGE flag "--as <as>" help="Your identity — shows unread count (default: $CHAT_IDENTITY)"
 #USAGE flag "--chat <chat>" help="Chat name (default: $CHAT_CHANNEL or auto-detect)"
+#USAGE flag "--json" help="Output as JSON object"
 set -eo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-source "$REPO_DIR/lib/chat.sh"
+source "$MISE_CONFIG_ROOT/lib/chat.sh"
 chat_resolve "${usage_chat:-}"
-chat_init
+chat_require_file
 
 chat_resolve_identity "${usage_as:-}"
 agent="$CHAT_IDENTITY"
@@ -18,6 +18,57 @@ command -v gum &>/dev/null && has_gum=true
 count_matches() {
   grep -c "$@" || true
 }
+
+# --- Stats ---
+total_msgs=$(count_matches '^### ' "$CHAT_FILE" 2>/dev/null)
+total_lines=$(chat_line_count)
+
+last_header=$(grep '^### ' "$CHAT_FILE" 2>/dev/null | tail -1 | sed 's/^### //' || true)
+
+participants=$(grep '^### ' "$CHAT_FILE" 2>/dev/null | sed 's/^### //; s/ — .*//' | tr '[:upper:]' '[:lower:]' | sort -u || true)
+if [ -n "$participants" ]; then
+  p_count=$(echo "$participants" | wc -l | tr -d ' ')
+  p_names=$(echo "$participants" | paste -sd ', ' -)
+else
+  p_count=0
+  p_names=""
+fi
+
+# --- JSON output ---
+if [ "${usage_json:-false}" = "true" ]; then
+  unread=0
+  [ -n "$agent" ] && unread=$(chat_count_new "$agent")
+
+  last_sender=""
+  last_time=""
+  if [ -n "$last_header" ]; then
+    last_sender=$(echo "$last_header" | sed -E 's/ — .*//')
+    last_time=$(echo "$last_header" | sed -E 's/.* — //')
+  fi
+
+  # Build participants array
+  if [ -n "$participants" ]; then
+    p_json=$(echo "$participants" | jq -R . | jq -s .)
+  else
+    p_json="[]"
+  fi
+
+  # Build JSON — include unread only when --as is provided
+  if [ -n "$agent" ]; then
+    jq -n --arg name "$CHAT_NAME" --argjson msgs "$total_msgs" \
+      --argjson unread "$unread" --arg last_sender "$last_sender" \
+      --arg last_time "$last_time" --argjson participants "$p_json" \
+      '{name: $name, msgs: $msgs, unread: $unread, last_sender: $last_sender, last_time: $last_time, participants: $participants}'
+  else
+    jq -n --arg name "$CHAT_NAME" --argjson msgs "$total_msgs" \
+      --arg last_sender "$last_sender" --arg last_time "$last_time" \
+      --argjson participants "$p_json" \
+      '{name: $name, msgs: $msgs, last_sender: $last_sender, last_time: $last_time, participants: $participants}'
+  fi
+  exit 0
+fi
+
+# --- Human-readable output below ---
 
 # --- Header ---
 if [ "$has_gum" = true ]; then
@@ -40,21 +91,6 @@ else
   else
     resolved="global default"
   fi
-fi
-
-# --- Stats ---
-total_msgs=$(count_matches '^### ' "$CHAT_FILE" 2>/dev/null)
-total_lines=$(chat_line_count)
-
-last_header=$(grep '^### ' "$CHAT_FILE" 2>/dev/null | tail -1 | sed 's/^### //' || true)
-
-participants=$(grep '^### ' "$CHAT_FILE" 2>/dev/null | sed 's/^### //; s/ — .*//' | tr '[:upper:]' '[:lower:]' | sort -u || true)
-if [ -n "$participants" ]; then
-  p_count=$(echo "$participants" | wc -l | tr -d ' ')
-  p_names=$(echo "$participants" | paste -sd ', ' -)
-else
-  p_count=0
-  p_names=""
 fi
 
 # Build info block

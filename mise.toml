@@ -1,3 +1,7 @@
+[settings]
+quiet = true
+task_output = "interleave"
+
 [tools]
 jq = "latest"
 gum = "latest"

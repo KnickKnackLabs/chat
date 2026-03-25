@@ -12,10 +12,9 @@
 #USAGE flag "--id" help="Include message IDs in JSON output"
 set -eo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-source "$REPO_DIR/lib/chat.sh"
+source "$MISE_CONFIG_ROOT/lib/chat.sh"
 chat_resolve "${usage_chat:-}"
-chat_init
+chat_require_file
 
 # Resolve identity: --as flag > $CHAT_IDENTITY > spectator mode
 chat_resolve_identity "${usage_as:-}"
@@ -29,6 +28,11 @@ after="${usage_after:-}"
 before="${usage_before:-}"
 as_json="${usage_json:-false}"
 show_ids="${usage_id:-false}"
+
+# Filters imply --all — these are query operations, not inbox checks
+if [ -n "$last_n" ] || [ -n "$sender" ] || [ -n "$after" ] || [ -n "$before" ]; then
+  show_all="true"
+fi
 
 # No identity → spectator mode (show all, no cursor tracking)
 if [ -z "$identity" ]; then
@@ -53,7 +57,7 @@ if [ "$as_json" = "true" ] || [ -n "$after" ] || [ -n "$before" ]; then
   [ "$as_json" = "true" ] && py_args+=(--json)
   [ "$show_ids" = "true" ] && py_args+=(--id)
 
-  uv run --script "$REPO_DIR/lib/read_query.py" "${py_args[@]}"
+  uv run --script "$MISE_CONFIG_ROOT/lib/read_query.py" "${py_args[@]}"
 
   # Advance cursor unless --peek
   if [ "$peek" != "true" ] && [ -n "$identity" ]; then

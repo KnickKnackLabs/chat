@@ -3,5 +3,4 @@
 #MISE hide=true
 set -eo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-exec bats "$REPO_DIR/test/"
+exec bats "$MISE_CONFIG_ROOT/test/"

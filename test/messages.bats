@@ -33,7 +33,7 @@ _send_to() {
 
 @test "task read --json: outputs valid JSON" {
   send_message "alice" "json test"
-  run_task read --chat test-chat --all --json
+  run chat read --chat test-chat --all --json
   [ "$status" -eq 0 ]
   local json
   json=$(echo "$output" | sed -n '/^\[$/,$ p')
@@ -44,7 +44,7 @@ _send_to() {
 @test "task read --json: --from filters by sender" {
   send_message "alice" "msg from alice"
   send_message "bob" "msg from bob"
-  run_task read --chat test-chat --all --json --from alice
+  run chat read --chat test-chat --all --json --from alice
   [ "$status" -eq 0 ]
   local json
   json=$(echo "$output" | sed -n '/^\[$/,$ p')
@@ -56,7 +56,7 @@ _send_to() {
 
 @test "task read --json --id: includes message IDs" {
   send_message "alice" "id test"
-  run_task read --chat test-chat --all --json --id
+  run chat read --chat test-chat --all --json --id
   [ "$status" -eq 0 ]
   local json id
   json=$(echo "$output" | sed -n '/^\[$/,$ p')
@@ -65,7 +65,7 @@ _send_to() {
 }
 
 @test "task read --json: empty channel outputs empty array" {
-  run_task read --chat test-chat --all --json
+  run chat read --chat test-chat --all --json
   [ "$status" -eq 0 ]
   [[ "$output" == *"[]"* ]]
 }
@@ -77,7 +77,7 @@ _send_to() {
 @test "task merge: dry-run shows plan without modifying files" {
   send_message "alice" "in test-chat"
   _send_to "other-chat" "bob" "in other-chat"
-  run_task merge other-chat test-chat --dry-run
+  run chat merge other-chat test-chat --dry-run
   [ "$status" -eq 0 ]
   [[ "$output" == *"DRY RUN"* ]]
   [[ "$output" == *"2 messages"* ]]
@@ -89,7 +89,7 @@ _send_to() {
 @test "task merge: merges source into target" {
   send_message "alice" "target msg"
   _send_to "source-chat" "bob" "source msg"
-  run_task merge source-chat test-chat
+  run chat merge source-chat test-chat
   [ "$status" -eq 0 ]
   # Source file should be removed
   [ ! -f "$CHAT_DATA_DIR/source-chat.md" ]
@@ -101,7 +101,7 @@ _send_to() {
 @test "task merge: messages are tagged with source channel" {
   send_message "alice" "target msg"
   _send_to "old-chat" "bob" "old msg"
-  run_task merge old-chat test-chat
+  run chat merge old-chat test-chat
   [ "$status" -eq 0 ]
   # Source tags should appear in merged file
   grep -q "old-chat" "$CHAT_FILE"
@@ -110,20 +110,20 @@ _send_to() {
 @test "task merge: --no-tag omits source annotations" {
   send_message "alice" "target msg"
   _send_to "old-chat" "bob" "old msg"
-  run_task merge old-chat test-chat --no-tag
+  run chat merge old-chat test-chat --no-tag
   [ "$status" -eq 0 ]
   # The Unicode arrow tag should not appear
   ! grep -q "⟵" "$CHAT_FILE"
 }
 
 @test "task merge: fails if source doesn't exist" {
-  run_task merge nonexistent test-chat
+  run chat merge nonexistent test-chat
   [ "$status" -ne 0 ]
   [[ "$output" == *"not found"* ]]
 }
 
 @test "task merge: fails if source equals target" {
-  run_task merge test-chat test-chat
+  run chat merge test-chat test-chat
   [ "$status" -ne 0 ]
   [[ "$output" == *"same channel"* ]]
 }
@@ -137,7 +137,7 @@ _send_to() {
   chat_set_cursor "alice"
   chat_resolve "test-chat"
 
-  run_task merge other-chat test-chat
+  run chat merge other-chat test-chat
   [ "$status" -eq 0 ]
   # Cursor should be reset to 0
   local cursor
@@ -152,7 +152,7 @@ _send_to() {
   chat_resolve "test-chat"
   send_message "alice" "target"
 
-  run_task merge other-chat test-chat
+  run chat merge other-chat test-chat
   [ "$status" -eq 0 ]
   [ ! -d "$CHAT_DATA_DIR/.cursors/other-chat" ]
 }

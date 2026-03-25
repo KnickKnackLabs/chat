@@ -54,6 +54,15 @@ chat_resolve() {
   CHAT_CURSOR_DIR="$CHAT_DATA_DIR/.cursors/${CHAT_NAME}"
 }
 
+# Require that the chat file already exists — for read-only commands
+chat_require_file() {
+  if [ ! -f "$CHAT_FILE" ]; then
+    echo "Error: chat '${CHAT_NAME}' does not exist." >&2
+    echo "Create it by sending a message: chat send --chat ${CHAT_NAME} --as <name> \"hello\"" >&2
+    return 1
+  fi
+}
+
 # Ensure chat infrastructure exists
 chat_init() {
   mkdir -p "$CHAT_DATA_DIR" "$CHAT_CURSOR_DIR"
@@ -99,6 +108,46 @@ chat_set_cursor() {
 # Format a timestamp
 chat_timestamp() {
   date "+%Y-%m-%d %H:%M"
+}
+
+# Convert "YYYY-MM-DD HH:MM" to epoch seconds (portable: macOS + Linux)
+_chat_to_epoch() {
+  local ts="$1"
+  if date --version &>/dev/null 2>&1; then
+    # GNU date (Linux)
+    date -d "$ts" +%s 2>/dev/null
+  else
+    # BSD date (macOS) — needs explicit format
+    date -j -f "%Y-%m-%d %H:%M" "$ts" +%s 2>/dev/null
+  fi
+}
+
+# Format a timestamp as relative time (e.g., "2d ago", "3h ago", "just now")
+# Usage: chat_relative_time "2026-03-23 14:30"
+chat_relative_time() {
+  local ts="$1"
+  [ -z "$ts" ] && return
+
+  local then_epoch now_epoch diff
+  then_epoch=$(_chat_to_epoch "$ts") || { echo "$ts"; return; }
+  now_epoch=$(date +%s)
+  diff=$(( now_epoch - then_epoch ))
+
+  if [ "$diff" -lt 0 ]; then
+    echo "$ts"
+  elif [ "$diff" -lt 60 ]; then
+    echo "just now"
+  elif [ "$diff" -lt 3600 ]; then
+    echo "$(( diff / 60 ))m ago"
+  elif [ "$diff" -lt 86400 ]; then
+    echo "$(( diff / 3600 ))h ago"
+  elif [ "$diff" -lt 604800 ]; then
+    echo "$(( diff / 86400 ))d ago"
+  elif [ "$diff" -lt 2592000 ]; then
+    echo "$(( diff / 604800 ))w ago"
+  else
+    echo "$ts"
+  fi
 }
 
 # Append a message to the chat file

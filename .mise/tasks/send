@@ -6,8 +6,7 @@
 #USAGE arg "<message>" help="The message to send (or - for stdin)"
 set -eo pipefail
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-source "$REPO_DIR/lib/chat.sh"
+source "$MISE_CONFIG_ROOT/lib/chat.sh"
 chat_resolve "${usage_chat:-}"
 chat_init
 
@@ -50,4 +49,7 @@ if [ "${usage_force:-false}" != "true" ]; then
 fi
 
 chat_append "$from" "$message"
+# Advance sender's cursor — the sender knows what they wrote, so their own
+# message should never appear as "unread" to them.
+chat_set_cursor "$from"
 echo "Sent to ${CHAT_NAME}."
