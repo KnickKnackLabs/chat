@@ -2,7 +2,7 @@
 #MISE description="Count total unread messages across all channels"
 #USAGE flag "--as <as>" help="Your identity (default: $CHAT_IDENTITY)"
 #USAGE flag "--json" help="Output as JSON with per-channel breakdown"
-#USAGE flag "--max-parallel <max_parallel>" default=8 help="Max channels to check in parallel"
+#USAGE flag "--max-parallel <max_parallel>" default="8" help="Max channels to check in parallel"
 set -eo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/chat.sh"
@@ -21,47 +21,49 @@ for f in "$CHAT_DATA_DIR"/*.md; do
 done
 
 if [ ${#channels[@]} -eq 0 ]; then
-  [ "$as_json" = "true" ] && echo '{"total":0,"channels":{}}' || echo "0"
+  [ "$as_json" = "true" ] && echo '{"total":0,"channels":{}}'
   exit 0
 fi
 
-# Count unread per channel in parallel (bounded by max_parallel)
+# Count unread per channel in parallel (bounded by max_parallel).
+# Tracks PIDs explicitly for bash <4.3 compatibility (no wait -n).
 RESULTS_DIR=$(mktemp -d)
 trap 'rm -rf "$RESULTS_DIR"' EXIT
 
-active=0
+pids=()
 for i in "${!channels[@]}"; do
   name="${channels[$i]}"
   (
-    CHAT_NAME="$name"
-    CHAT_FILE="$CHAT_DATA_DIR/${name}.md"
-    CHAT_CURSOR_DIR="$CHAT_DATA_DIR/.cursors/${name}"
+    chat_resolve "$name"
     count=$(chat_count_new "$identity")
     echo -n "$count" > "$RESULTS_DIR/$i"
   ) &
-  active=$((active + 1))
-  if [ "$active" -ge "$max_parallel" ]; then
-    wait -n 2>/dev/null || wait
-    active=$((active - 1))
+  pids+=("$!")
+  if [ ${#pids[@]} -ge "$max_parallel" ]; then
+    wait "${pids[0]}" 2>/dev/null || true
+    pids=("${pids[@]:1}")
   fi
 done
 wait
 
 # Collect results
 total=0
-json_channels=""
+json_pairs=()
 for i in "${!channels[@]}"; do
   count=0
   [ -f "$RESULTS_DIR/$i" ] && count=$(cat "$RESULTS_DIR/$i")
   total=$((total + count))
   if [ "$as_json" = "true" ] && [ "$count" -gt 0 ]; then
-    json_channels+="$(printf '"%s":%d,' "${channels[$i]}" "$count")"
+    json_pairs+=("$(jq -n --arg n "${channels[$i]}" --argjson c "$count" '{($n):$c}')")
   fi
 done
 
 if [ "$as_json" = "true" ]; then
-  json_channels="${json_channels%,}"  # trim trailing comma
-  printf '{"total":%d,"channels":{%s}}\n' "$total" "$json_channels"
+  channels_obj="{}"
+  for pair in "${json_pairs[@]+${json_pairs[@]}}"; do
+    channels_obj=$(echo "$channels_obj" "$pair" | jq -s '.[0] * .[1]')
+  done
+  jq -n --argjson total "$total" --argjson channels "$channels_obj" '{total: $total, channels: $channels}'
 else
   [ "$total" -eq 0 ] && exit 0
   echo "$total"
