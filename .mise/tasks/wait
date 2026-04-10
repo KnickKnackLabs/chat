@@ -4,6 +4,7 @@
 #USAGE flag "--as <as>" help="Your identity — ignores own messages (default: $CHAT_IDENTITY)"
 #USAGE flag "--timeout <seconds>" help="Max seconds to wait (0 = forever)" default="120"
 #USAGE flag "--forever" help="Wait indefinitely (shorthand for --timeout 0)"
+#USAGE flag "--batch <batch>" help="Wait for N messages from others before waking (default: 1)" default="1"
 set -eo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/chat.sh"
@@ -14,6 +15,11 @@ chat_require_file
 chat_resolve_identity "${usage_as:-}"
 agent="$CHAT_IDENTITY"
 timeout="${usage_timeout:-120}"
+batch="${usage_batch:-1}"
+if ! [[ "$batch" =~ ^[1-9][0-9]*$ ]]; then
+  echo "Error: --batch must be a positive integer (got: $batch)" >&2
+  exit 1
+fi
 # --forever overrides --timeout
 if [ "${usage_forever:-false}" = "true" ]; then
   timeout=0
@@ -41,42 +47,61 @@ if [ -n "$agent" ] && [ "$cursor" -eq 0 ]; then
   chat_set_cursor "$agent"
 fi
 
-# Check whether content contains messages from someone other than the given agent.
-# Usage: _has_other_sender "content" "agent_name"
-# Returns 0 if there's a message from another sender, 1 otherwise.
-_has_other_sender() {
+# Count messages from senders other than the given agent.
+# Usage: _count_other_senders "content" "agent_name"
+# Prints the count to stdout.
+_count_other_senders() {
   local content="$1"
   local self="$2"
-  if [ -z "$self" ]; then
-    return 0  # no identity → any message wakes
-  fi
   local headers
   headers=$(echo "$content" | grep '^### ' || true)
-  [ -z "$headers" ] && return 1  # no message headers → nothing to wake for
+  [ -z "$headers" ] && { echo "0"; return; }
+  if [ -z "$self" ]; then
+    # no identity → count all messages
+    echo "$headers" | wc -l | tr -d ' '
+    return
+  fi
+  local count=0
   while IFS= read -r header; do
     local sender
     sender=$(echo "$header" | sed -E 's/^### (.+) — .+$/\1/')
     if [ "$sender" != "$self" ]; then
-      return 0
+      count=$((count + 1))
     fi
   done <<< "$headers"
-  return 1
+  echo "$count"
+}
+
+# Check whether content has enough messages from others to meet the batch threshold.
+# Usage: _has_enough_messages "content" "agent_name" batch_count
+# Returns 0 if count >= batch, 1 otherwise.
+_has_enough_messages() {
+  local content="$1"
+  local self="$2"
+  local threshold="$3"
+  local count
+  count=$(_count_other_senders "$content" "$self")
+  [ "$count" -ge "$threshold" ]
 }
 
 # Check if there are already unread messages before we start polling
 if [ "$cursor" -lt "$total" ]; then
   new_content=$(tail -n +"$((cursor + 1))" "$CHAT_FILE")
 
-  if _has_other_sender "$new_content" "$agent"; then
+  if _has_enough_messages "$new_content" "$agent" "$batch"; then
     echo "New messages:"
     echo "$new_content" | chat_format_messages
     [ -n "$agent" ] && chat_set_cursor "$agent"
     exit 0
   fi
 
-  # Only own messages — advance cursor past them and continue to poll
-  [ -n "$agent" ] && chat_set_cursor "$agent"
-  cursor="$total"
+  # Not enough messages yet (or only own) — advance cursor past own and continue
+  # Only advance if there are no other-sender messages at all (pure own messages).
+  # If there are some but not enough, keep cursor to accumulate toward batch.
+  if [ "$(_count_other_senders "$new_content" "$agent")" -eq 0 ]; then
+    [ -n "$agent" ] && chat_set_cursor "$agent"
+    cursor="$total"
+  fi
 fi
 
 elapsed=0
@@ -94,7 +119,7 @@ while true; do
   if [ "$current_lines" -gt "$cursor" ]; then
     new_content=$(tail -n +"$((cursor + 1))" "$CHAT_FILE")
 
-    if _has_other_sender "$new_content" "$agent"; then
+    if _has_enough_messages "$new_content" "$agent" "$batch"; then
       echo ""
       echo "New messages:"
       echo "$new_content" | chat_format_messages
