@@ -16,6 +16,10 @@ chat_resolve_identity "${usage_as:-}"
 agent="$CHAT_IDENTITY"
 timeout="${usage_timeout:-120}"
 batch="${usage_batch:-1}"
+if ! [[ "$batch" =~ ^[1-9][0-9]*$ ]]; then
+  echo "Error: --batch must be a positive integer (got: $batch)" >&2
+  exit 1
+fi
 # --forever overrides --timeout
 if [ "${usage_forever:-false}" = "true" ]; then
   timeout=0
@@ -94,8 +98,7 @@ if [ "$cursor" -lt "$total" ]; then
   # Not enough messages yet (or only own) — advance cursor past own and continue
   # Only advance if there are no other-sender messages at all (pure own messages).
   # If there are some but not enough, keep cursor to accumulate toward batch.
-  _other_count=$(_count_other_senders "$new_content" "$agent")
-  if [ "$_other_count" -eq 0 ]; then
+  if [ "$(_count_other_senders "$new_content" "$agent")" -eq 0 ]; then
     [ -n "$agent" ] && chat_set_cursor "$agent"
     cursor="$total"
   fi
