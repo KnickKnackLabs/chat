@@ -446,6 +446,89 @@ EOF
   [ "$newer_pos" -lt "$older_pos" ]
 }
 
+# ----- Unread column + --unread filter -----
+
+@test "task list: no Unread column when no identity" {
+  send_message "alice" "hello"
+  run chat list
+  [ "$status" -eq 0 ]
+  ! [[ "$output" == *"Unread"* ]]
+}
+
+@test "task list --as: shows Unread column" {
+  send_message "alice" "hello"
+  run chat list --as bob
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Unread"* ]]
+}
+
+@test "task list --as: Unread reflects messages from other agents" {
+  send_message "alice" "one"
+  send_message "alice" "two"
+  run chat list --as bob --json
+  [ "$status" -eq 0 ]
+  echo "$output" | python3 -c "
+import json, sys
+channels = json.load(sys.stdin)
+for c in channels:
+    if c['name'] == 'test-chat':
+        assert c['unread'] == 2, f'expected 2 unread, got {c[\"unread\"]}'
+        break
+else:
+    raise SystemExit('test-chat not found')
+"
+}
+
+@test "task list --as: own messages do not count as unread" {
+  send_message "alice" "mine"
+  run chat list --as alice --json
+  [ "$status" -eq 0 ]
+  echo "$output" | python3 -c "
+import json, sys
+channels = json.load(sys.stdin)
+for c in channels:
+    if c['name'] == 'test-chat':
+        assert c['unread'] == 0, f'expected 0 unread (own msgs), got {c[\"unread\"]}'
+        break
+else:
+    raise SystemExit('test-chat not found')
+"
+}
+
+@test "task list --json: no unread field when no identity" {
+  send_message "alice" "hello"
+  run chat list --json
+  [ "$status" -eq 0 ]
+  echo "$output" | python3 -c "
+import json, sys
+channels = json.load(sys.stdin)
+for c in channels:
+    if c['name'] == 'test-chat':
+        assert 'unread' not in c, f'unread should be omitted when no identity, got: {c}'
+        break
+"
+}
+
+@test "task list --unread: hides channels with zero unread" {
+  # test-chat has no unread for alice (she's the sender)
+  send_message "alice" "hi"
+  # second channel with unread for alice
+  chat_resolve "busy-chat"
+  chat_init
+  chat_append "bob" "urgent"
+  run chat list --as alice --unread
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"busy-chat"* ]]
+  ! [[ "$output" == *"test-chat"* ]]
+}
+
+@test "task list --unread: errors without identity" {
+  send_message "alice" "hello"
+  run chat list --unread
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"requires an identity"* ]]
+}
+
 # ============================================================================
 # status task (replaces welcome)
 # ============================================================================

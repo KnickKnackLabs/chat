@@ -2,13 +2,37 @@
 #MISE description="List available chats"
 #USAGE flag "--json" help="Output as JSON array"
 #USAGE flag "--all" help="Include empty channels (hidden by default)"
+#USAGE flag "--unread" help="Only list channels with unread messages (requires identity)"
+#USAGE flag "--as <as>" help="Your identity (default: $CHAT_IDENTITY). When set, an Unread column is shown."
 set -eo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/chat.sh"
 
+# Resolve identity non-fatally. When set, enables the Unread column and
+# the --unread filter; when empty, `list` behaves as before (no unread data).
+chat_resolve_identity "${usage_as:-}"
+has_identity=false
+[ -n "$CHAT_IDENTITY" ] && has_identity=true
+
+unread_only="${usage_unread:-false}"
+if [ "$unread_only" = "true" ] && [ "$has_identity" != "true" ]; then
+  echo "Error: --unread requires an identity. Use --as <name> or set \$CHAT_IDENTITY." >&2
+  exit 1
+fi
+
 # Safe grep -c
 count_matches() {
   grep -c "$@" || true
+}
+
+# Count unread for a channel, given identity. Returns 0 if no identity.
+_unread_for() {
+  local chan="$1"
+  [ "$has_identity" = "true" ] || { echo 0; return; }
+  (
+    chat_resolve "$chan"
+    chat_count_new "$CHAT_IDENTITY"
+  )
 }
 
 if ! compgen -G "$CHAT_DATA_DIR/*.md" >/dev/null 2>&1; then
@@ -39,6 +63,16 @@ if [ "${usage_json:-false}" = "true" ]; then
       continue
     fi
 
+    unread=0
+    if [ "$has_identity" = "true" ]; then
+      unread=$(_unread_for "$name")
+    fi
+
+    # --unread filter: skip channels with nothing new for this agent
+    if [ "$unread_only" = "true" ] && [ "$unread" -eq 0 ]; then
+      continue
+    fi
+
     is_current=false
     [ "$name" = "$current" ] && is_current=true
 
@@ -51,10 +85,17 @@ if [ "${usage_json:-false}" = "true" ]; then
       last_time=$(echo "$last_header" | sed -E 's/.* — //')
     fi
 
-    json_objects+=$(jq -n --arg name "$name" --argjson current "$is_current" \
-      --argjson msgs "$msgs" --arg last_sender "$last_sender" \
-      --arg last_time "$last_time" \
-      '{name: $name, current: $current, msgs: $msgs, last_sender: $last_sender, last_time: $last_time}')
+    if [ "$has_identity" = "true" ]; then
+      json_objects+=$(jq -n --arg name "$name" --argjson current "$is_current" \
+        --argjson msgs "$msgs" --argjson unread "$unread" \
+        --arg last_sender "$last_sender" --arg last_time "$last_time" \
+        '{name: $name, current: $current, msgs: $msgs, unread: $unread, last_sender: $last_sender, last_time: $last_time}')
+    else
+      json_objects+=$(jq -n --arg name "$name" --argjson current "$is_current" \
+        --argjson msgs "$msgs" --arg last_sender "$last_sender" \
+        --arg last_time "$last_time" \
+        '{name: $name, current: $current, msgs: $msgs, last_sender: $last_sender, last_time: $last_time}')
+    fi
     json_objects+=$'\n'
   done
 
@@ -68,8 +109,10 @@ fi
 
 # --- Human-readable output ---
 
-# Collect rows with epoch for sorting
-# Format: epoch \t name|msgs|last
+# Collect rows with epoch for sorting.
+# Format depends on whether the Unread column is active:
+#   with identity: epoch \t name|msgs|unread|last
+#   without:       epoch \t name|msgs|last
 rows_with_epoch=""
 
 for f in "$CHAT_DATA_DIR"/*.md; do
@@ -79,6 +122,16 @@ for f in "$CHAT_DATA_DIR"/*.md; do
 
   # Skip empty channels unless --all
   if [ "$show_all" != "true" ] && [ "$msgs" -eq 0 ]; then
+    continue
+  fi
+
+  unread=0
+  if [ "$has_identity" = "true" ]; then
+    unread=$(_unread_for "$name")
+  fi
+
+  # --unread filter: hide channels with nothing new for this agent
+  if [ "$unread_only" = "true" ] && [ "$unread" -eq 0 ]; then
     continue
   fi
 
@@ -93,19 +146,34 @@ for f in "$CHAT_DATA_DIR"/*.md; do
   fi
   marker=""
   [ "$name" = "$current" ] && marker=" ←"
-  rows_with_epoch="${rows_with_epoch}${epoch}\t${name}${marker}|${msgs}|${last}\n"
+  if [ "$has_identity" = "true" ]; then
+    rows_with_epoch="${rows_with_epoch}${epoch}\t${name}${marker}|${msgs}|${unread}|${last}\n"
+  else
+    rows_with_epoch="${rows_with_epoch}${epoch}\t${name}${marker}|${msgs}|${last}\n"
+  fi
 done
+
+if [ "$has_identity" = "true" ]; then
+  header="Chat|Msgs|Unread|Last Active"
+else
+  header="Chat|Msgs|Last Active"
+fi
 
 if command -v gum &>/dev/null; then
   # Sort by epoch descending (most recent first), then strip the epoch column
   sorted_rows=$(printf '%b' "$rows_with_epoch" | sort -t$'\t' -k1 -rn | cut -f2-)
-  printf '%s\n%s' "Chat|Msgs|Last Active" "$sorted_rows" | \
+  printf '%s\n%s' "$header" "$sorted_rows" | \
     gum table -s '|' -p --border.foreground 39
 else
   # Fallback: sort and plain output
   printf '%b' "$rows_with_epoch" | sort -t$'\t' -k1 -rn | while IFS=$'\t' read -r _ row; do
     name_part=$(echo "$row" | cut -d'|' -f1)
     msgs_part=$(echo "$row" | cut -d'|' -f2)
-    echo "${name_part} — ${msgs_part} message(s)"
+    if [ "$has_identity" = "true" ]; then
+      unread_part=$(echo "$row" | cut -d'|' -f3)
+      echo "${name_part} — ${msgs_part} message(s), ${unread_part} unread"
+    else
+      echo "${name_part} — ${msgs_part} message(s)"
+    fi
   done
 fi
