@@ -446,6 +446,136 @@ EOF
   [ "$newer_pos" -lt "$older_pos" ]
 }
 
+# ----- Unread column + --unread filter -----
+
+@test "task list: no Unread column when no identity" {
+  send_message "alice" "hello"
+  run chat list
+  [ "$status" -eq 0 ]
+  ! [[ "$output" == *"Unread"* ]]
+}
+
+@test "task list --as: shows Unread column" {
+  send_message "alice" "hello"
+  run chat list --as bob
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Unread"* ]]
+}
+
+@test "task list --as: Unread reflects messages from other agents" {
+  send_message "alice" "one"
+  send_message "alice" "two"
+  run chat list --as bob --json
+  [ "$status" -eq 0 ]
+  echo "$output" | python3 -c "
+import json, sys
+channels = json.load(sys.stdin)
+for c in channels:
+    if c['name'] == 'test-chat':
+        assert c['unread'] == 2, f'expected 2 unread, got {c[\"unread\"]}'
+        break
+else:
+    raise SystemExit('test-chat not found')
+"
+}
+
+@test "task list --as: own messages do not count as unread" {
+  send_message "alice" "mine"
+  run chat list --as alice --json
+  [ "$status" -eq 0 ]
+  echo "$output" | python3 -c "
+import json, sys
+channels = json.load(sys.stdin)
+for c in channels:
+    if c['name'] == 'test-chat':
+        assert c['unread'] == 0, f'expected 0 unread (own msgs), got {c[\"unread\"]}'
+        break
+else:
+    raise SystemExit('test-chat not found')
+"
+}
+
+@test "task list --json: no unread field when no identity" {
+  send_message "alice" "hello"
+  run chat list --json
+  [ "$status" -eq 0 ]
+  echo "$output" | python3 -c "
+import json, sys
+channels = json.load(sys.stdin)
+for c in channels:
+    if c['name'] == 'test-chat':
+        assert 'unread' not in c, f'unread should be omitted when no identity, got: {c}'
+        break
+"
+}
+
+@test "task list --unread: hides channels with zero unread" {
+  # test-chat has no unread for alice (she's the sender)
+  send_message "alice" "hi"
+  # second channel with unread for alice
+  chat_resolve "busy-chat"
+  chat_init
+  chat_append "bob" "urgent"
+  run chat list --as alice --unread
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"busy-chat"* ]]
+  ! [[ "$output" == *"test-chat"* ]]
+}
+
+@test "task list --unread: errors without identity" {
+  send_message "alice" "hello"
+  run chat list --unread
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"requires an identity"* ]]
+}
+
+@test "task list: \$CHAT_IDENTITY env var enables Unread column without --as" {
+  # Agents commonly export CHAT_IDENTITY at session start rather than
+  # passing --as on every call. Exercise that path explicitly.
+  send_message "alice" "hello"
+  export CHAT_IDENTITY=bob
+  run chat list --json
+  [ "$status" -eq 0 ]
+  echo "$output" | python3 -c "
+import json, sys
+for c in json.load(sys.stdin):
+    if c['name'] == 'test-chat':
+        assert 'unread' in c, 'unread field should appear with CHAT_IDENTITY set'
+        assert c['unread'] == 1, f'expected 1 unread, got {c[\"unread\"]}'
+        break
+else:
+    raise SystemExit('test-chat not found')
+"
+}
+
+@test "task list --unread --all: --unread still filters empty channels" {
+  # --all would normally include the empty channel; --unread filters it back out
+  # because an empty channel has zero unread by definition.
+  send_message "alice" "has-content"
+  chat_resolve "empty-chat"
+  chat_init
+  run chat list --as bob --unread --all
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"test-chat"* ]]
+  ! [[ "$output" == *"empty-chat"* ]]
+}
+
+@test "task list --unread --json: JSON path respects the unread filter" {
+  send_message "alice" "hi"
+  chat_resolve "quiet-chat"
+  chat_init
+  chat_append "bob" "seen"
+  run chat list --as bob --unread --json
+  [ "$status" -eq 0 ]
+  echo "$output" | python3 -c "
+import json, sys
+channels = json.load(sys.stdin)
+names = sorted(c['name'] for c in channels)
+assert names == ['test-chat'], f'expected only test-chat, got: {names}'
+assert channels[0]['unread'] == 1
+"
+}
+
 # ============================================================================
 # status task (replaces welcome)
 # ============================================================================
