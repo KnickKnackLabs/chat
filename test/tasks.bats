@@ -529,6 +529,53 @@ for c in channels:
   [[ "$output" == *"requires an identity"* ]]
 }
 
+@test "task list: \$CHAT_IDENTITY env var enables Unread column without --as" {
+  # Agents commonly export CHAT_IDENTITY at session start rather than
+  # passing --as on every call. Exercise that path explicitly.
+  send_message "alice" "hello"
+  export CHAT_IDENTITY=bob
+  run chat list --json
+  [ "$status" -eq 0 ]
+  echo "$output" | python3 -c "
+import json, sys
+for c in json.load(sys.stdin):
+    if c['name'] == 'test-chat':
+        assert 'unread' in c, 'unread field should appear with CHAT_IDENTITY set'
+        assert c['unread'] == 1, f'expected 1 unread, got {c[\"unread\"]}'
+        break
+else:
+    raise SystemExit('test-chat not found')
+"
+}
+
+@test "task list --unread --all: --unread still filters empty channels" {
+  # --all would normally include the empty channel; --unread filters it back out
+  # because an empty channel has zero unread by definition.
+  send_message "alice" "has-content"
+  chat_resolve "empty-chat"
+  chat_init
+  run chat list --as bob --unread --all
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"test-chat"* ]]
+  ! [[ "$output" == *"empty-chat"* ]]
+}
+
+@test "task list --unread --json: JSON path respects the unread filter" {
+  send_message "alice" "hi"
+  chat_resolve "quiet-chat"
+  chat_init
+  chat_append "bob" "seen"
+  run chat list --as bob --unread --json
+  [ "$status" -eq 0 ]
+  echo "$output" | python3 -c "
+import json, sys
+channels = json.load(sys.stdin)
+names = sorted(c['name'] for c in channels)
+assert names == ['test-chat'], f'expected only test-chat, got: {names}'
+assert channels[0]['unread'] == 1
+"
+}
+
 # ============================================================================
 # status task (replaces welcome)
 # ============================================================================
