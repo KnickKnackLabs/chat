@@ -160,7 +160,7 @@ load test_helper
 }
 
 @test "task send: CHAT_IDENTITY env var used when --as omitted" {
-  run env CHAT_IDENTITY="alice" chat send --chat test-chat "env identity send"
+  CHAT_IDENTITY="alice" run chat send --chat test-chat "env identity send"
   [ "$status" -eq 0 ]
   grep -q "### alice" "$CHAT_FILE"
   grep -q "env identity send" "$CHAT_FILE"
