@@ -95,7 +95,7 @@ limit_last_n() {
   local input
   input=$(cat)
   local headers
-  headers=$(echo "$input" | grep -n '^### ' || true)
+  headers=$(echo "$input" | grep -n '^### ') || headers=""
   if [ -z "$headers" ]; then
     echo "$input"
     return

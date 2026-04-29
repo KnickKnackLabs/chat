@@ -26,15 +26,19 @@ chat_require_identity() {
 }
 
 # Detect chat name from git remote origin of the caller's directory
-# Returns the repo name (last path component, no org prefix) or empty string
+# Returns the repo name (last path component, no org prefix) or empty
+# string when the caller isn't inside a git repo. Always exits 0.
 _chat_detect_repo() {
   local dir="${CALLER_PWD:-$PWD}"
   local url
-  url=$(git -C "$dir" remote get-url origin 2>/dev/null) || return 1
+  if ! url=$(git -C "$dir" remote get-url origin 2>/dev/null); then
+    return 0
+  fi
   # Strip protocol, host, .git suffix → org/repo, then take last component
   local path
   path=$(echo "$url" | sed -E 's#^(https?://[^/]+/|git@[^:]+:)##; s/\.git$//')
   [ -n "$path" ] && basename "$path"
+  return 0
 }
 
 # Resolve which chat we're targeting
@@ -47,7 +51,7 @@ chat_resolve() {
   elif [ -n "${CHAT_CHANNEL:-}" ]; then
     CHAT_NAME="$CHAT_CHANNEL"
   else
-    CHAT_NAME=$(_chat_detect_repo || true)
+    CHAT_NAME=$(_chat_detect_repo)
     CHAT_NAME="${CHAT_NAME:-global}"
   fi
   CHAT_FILE="$CHAT_DATA_DIR/${CHAT_NAME}.md"
@@ -197,7 +201,7 @@ chat_count_new() {
   # Count message headers from *other* agents only — your own unread
   # messages shouldn't block you from sending.
   local count
-  count=$(tail -n +"$((cursor + 1))" "$CHAT_FILE" | grep '^### ' | grep -cv "^### ${agent} " || true)
+  count=$(tail -n +"$((cursor + 1))" "$CHAT_FILE" | grep '^### ' | grep -cv "^### ${agent} ") || count=0
   echo "$count"
 }
 

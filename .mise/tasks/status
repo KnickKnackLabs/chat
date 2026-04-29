@@ -14,15 +14,18 @@ agent="$CHAT_IDENTITY"
 has_gum=false
 command -v gum &>/dev/null && has_gum=true
 
-# Safe grep -c that doesn't fail on 0 matches
+# Safe grep -c that doesn't fail on 0 matches.
+# grep -c always prints a count to stdout; exit 1 means "no matches"
+# (the count is still 0). We accept exit 1 but propagate real errors
+# (exit ≥2, e.g. unreadable file).
 count_matches() {
-  grep -c "$@" || true
+  grep -c "$@" || [ $? -eq 1 ]
 }
 
 # --- Stats ---
 total_msgs=$(count_matches '^### ' "$CHAT_FILE" 2>/dev/null)
 
-last_header=$(grep '^### ' "$CHAT_FILE" 2>/dev/null | tail -1 | sed 's/^### //' || true)
+last_header=$(grep '^### ' "$CHAT_FILE" 2>/dev/null | tail -1 | sed 's/^### //') || last_header=""
 last_sender=""
 last_time=""
 if [ -n "$last_header" ]; then
@@ -30,7 +33,7 @@ if [ -n "$last_header" ]; then
   last_time=$(echo "$last_header" | sed -E 's/.* — //')
 fi
 
-participants=$(grep '^### ' "$CHAT_FILE" 2>/dev/null | sed 's/^### //; s/ — .*//' | tr '[:upper:]' '[:lower:]' | sort -u || true)
+participants=$(grep '^### ' "$CHAT_FILE" 2>/dev/null | sed 's/^### //; s/ — .*//' | tr '[:upper:]' '[:lower:]' | sort -u) || participants=""
 if [ -n "$participants" ]; then
   p_count=$(echo "$participants" | wc -l | tr -d ' ')
   p_names=$(echo "$participants" | paste -sd ' ' - | sed 's/ /, /g')

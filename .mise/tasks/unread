@@ -40,11 +40,20 @@ for i in "${!channels[@]}"; do
   ) &
   pids+=("$!")
   if [ ${#pids[@]} -ge "$max_parallel" ]; then
-    wait "${pids[0]}" 2>/dev/null || true
+    # Bounded-parallel reap: a failed child means that channel won't
+    # produce a count; the result loop already tolerates missing files.
+    if ! wait "${pids[0]}" 2>/dev/null; then
+      :
+    fi
     pids=("${pids[@]:1}")
   fi
 done
-wait
+
+for pid in "${pids[@]}"; do
+  if ! wait "$pid" 2>/dev/null; then
+    :
+  fi
+done
 
 # Collect results
 total=0

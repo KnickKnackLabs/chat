@@ -54,7 +54,7 @@ _count_other_senders() {
   local content="$1"
   local self="$2"
   local headers
-  headers=$(echo "$content" | grep '^### ' || true)
+  headers=$(echo "$content" | grep '^### ') || headers=""
   [ -z "$headers" ] && { echo "0"; return; }
   if [ -z "$self" ]; then
     # no identity → count all messages
