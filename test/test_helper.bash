@@ -1,6 +1,13 @@
 # test_helper.bash — shared setup for chat BATS tests
 
-export MISE_CONFIG_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
+# Resolve the chat repo root from the test directory. Avoid referencing
+# $MISE_CONFIG_ROOT in test/* per the codebase 'mcr-scope' rule: agent
+# sessions are themselves spawned from a mise task, so MCR is inherited
+# from the launcher's repo and is unreliable in test contexts.
+# $BATS_TEST_DIRNAME is always the dir of the running .bats file (set
+# by bats from the file path), which lives at <repo>/test/.
+CHAT_REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
+export CHAT_REPO_ROOT
 
 setup() {
   # BATS_TEST_TMPDIR is unique per test and auto-cleaned by BATS (1.4+)
@@ -11,7 +18,7 @@ setup() {
   unset CHAT_IDENTITY
   unset CHAT_CHANNEL
 
-  source "$MISE_CONFIG_ROOT/lib/chat.sh"
+  source "$CHAT_REPO_ROOT/lib/chat.sh"
   chat_resolve "test-chat"
   chat_init
 }
@@ -54,6 +61,6 @@ chat() {
   local task="$1"
   shift
   env CHAT_DATA_DIR="$CHAT_DATA_DIR" \
-    mise run -C "$MISE_CONFIG_ROOT" -q "$task" "$@"
+    mise run -C "$CHAT_REPO_ROOT" -q "$task" "$@"
 }
 export -f chat
