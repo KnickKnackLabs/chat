@@ -48,7 +48,12 @@ for i in "${!channels[@]}"; do
     pids=("${pids[@]:1}")
   fi
 done
-wait
+
+for pid in "${pids[@]}"; do
+  if ! wait "$pid" 2>/dev/null; then
+    :
+  fi
+done
 
 # Collect results
 total=0
