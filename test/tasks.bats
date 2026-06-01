@@ -99,6 +99,15 @@ load test_helper
   [[ "$output" != *"from carol"* ]]
 }
 
+@test "task read: omitted --by ignores stale usage_by env" {
+  send_message "bob" "from bob"
+  send_message "carol" "from carol"
+  usage_by=bob run chat read test-chat --as alice --all
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"from bob"* ]]
+  [[ "$output" == *"from carol"* ]]
+}
+
 @test "task read: --all --last shows last N messages" {
   send_message "alice" "first"
   send_message "bob" "second"
