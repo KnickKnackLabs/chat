@@ -313,6 +313,8 @@ $HOME/.local/share/chat/
 │       ├── zeke            # "42" — last-read line number
 │       ├── brownie         # "38"
 │       └── junior          # "42"
+├── .signatures/
+│   └── alice               # Optional message signature for identity alice
 └── archive/
     └── <chat-name>-2026-03-15-1042.md
 ```
