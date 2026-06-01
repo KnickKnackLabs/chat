@@ -181,6 +181,22 @@ load test_helper
   [ ! -f "$CHAT_CURSOR_DIR/alice.prev" ]
 }
 
+@test "cursor: set preserves .prev when cursor does not advance" {
+  send_message "bob" "first"
+  chat_set_cursor "alice"
+  local first_pos
+  first_pos=$(chat_get_cursor "alice")
+
+  send_message "bob" "second"
+  chat_set_cursor "alice"
+
+  chat_set_cursor "alice"
+
+  local prev_file="$CHAT_CURSOR_DIR/alice.prev"
+  [ -f "$prev_file" ]
+  [ "$(cat "$prev_file")" = "$first_pos" ]
+}
+
 # ============================================================================
 # chat_append
 # ============================================================================

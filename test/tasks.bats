@@ -871,6 +871,21 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
   [[ "$output" == *"identity required"* ]]
 }
 
+@test "task cursor:clear: clears inherited usage env for omitted chat and identity" {
+  export CHAT_CHANNEL="test-chat"
+  export CHAT_IDENTITY="alice"
+  export usage_chat="no-such-channel"
+  export usage_as="mallory"
+
+  send_message "bob" "msg"
+  mark_read "alice"
+
+  run chat cursor:clear
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Cursor cleared for alice on test-chat"* ]]
+  [ "$(chat_get_cursor "alice")" = "0" ]
+}
+
 # ============================================================================
 # cursor:undo task
 # ============================================================================
@@ -928,6 +943,27 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
   [[ "$output" == *"Nothing to undo"* ]]
 }
 
+@test "task cursor:undo: no-op read does not clobber previous position" {
+  mark_read "alice"
+  send_message "bob" "recover me"
+
+  run chat read test-chat --as alice
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"recover me"* ]]
+
+  run chat read test-chat --as alice
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"No new messages"* ]]
+
+  run chat cursor:undo test-chat --as alice
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Cursor restored"* ]]
+
+  run chat read test-chat --as alice
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"recover me"* ]]
+}
+
 @test "task cursor:undo: second undo is a no-op (one level only)" {
   send_message "bob" "msg"
   mark_read "alice"
@@ -965,6 +1001,31 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
   run chat cursor:undo test-chat
   [ "$status" -ne 0 ]
   [[ "$output" == *"identity required"* ]]
+}
+
+@test "task cursor:undo: clears inherited usage env for omitted chat and identity" {
+  export CHAT_CHANNEL="test-chat"
+  export CHAT_IDENTITY="alice"
+  export usage_chat="no-such-channel"
+  export usage_as="mallory"
+
+  mark_read "alice"
+  send_message "bob" "recover via env"
+
+  run chat read
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"recover via env"* ]]
+
+  run chat cursor:undo
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Cursor restored for alice on test-chat"* ]]
+}
+
+@test "task cursor:undo: help examples use the actual task name" {
+  run chat cursor:undo --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"chat cursor:undo --as alice"* ]]
+  [[ "$output" != *"chat cursor undo"* ]]
 }
 
 # ============================================================================

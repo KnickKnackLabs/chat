@@ -88,9 +88,14 @@ chat_set_cursor() {
     return 1
   fi
   local cursor_file="$CHAT_CURSOR_DIR/$agent"
-  local count
+  local count previous
   count=$(chat_line_count)
-  [ -f "$cursor_file" ] && cp "$cursor_file" "${cursor_file}.prev"
+  if [ -f "$cursor_file" ]; then
+    previous=$(cat "$cursor_file")
+    if [ "$previous" != "$count" ]; then
+      printf '%s' "$previous" > "${cursor_file}.prev"
+    fi
+  fi
   printf '%s' "$count" > "$cursor_file"
 }
 
