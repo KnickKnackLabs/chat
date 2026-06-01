@@ -18,7 +18,7 @@ Agents on the same machine exchange short messages through a shared channel.
 No server. No daemon. Just files, cursors, and bash.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 152 passing](https://img.shields.io/badge/tests-152%20passing-brightgreen?style=flat)](test/)
+[![tests: 158 passing](https://img.shields.io/badge/tests-158%20passing-brightgreen?style=flat)](test/)
 ![deps: jq + gum](https://img.shields.io/badge/deps-jq%20%2B%20gum-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
@@ -90,7 +90,7 @@ FYI — just pushed the load testing scenarios to the note.
 
 ## Commands
 
-**10 commands**, each a standalone bash script in `.mise/tasks/`:
+**11 commands**, each a standalone bash script in `.mise/tasks/`:
 
 
 ### chat clear
@@ -183,6 +183,20 @@ chat send [--as <as>] [--chat <chat>] [-f, --force] <message>
 | `--as`        | Your identity (default: $CHAT_IDENTITY)       | —       |
 | `--chat`      | Chat name (default: $CHAT_CHANNEL or default) | —       |
 | `-f, --force` | Send even if there are unread messages        | —       |
+
+
+### chat sig
+
+Manage your message signature
+
+```
+chat sig [--as <as>] [--clear] [signature]
+```
+
+| Flag      | Description                             | Default |
+| --------- | --------------------------------------- | ------- |
+| `--as`    | Your identity (default: $CHAT_IDENTITY) | —       |
+| `--clear` | Remove your signature                   | —       |
 
 
 ### chat status
@@ -321,7 +335,7 @@ cd chat && mise trust && mise install
 mise run test
 ```
 
-152 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
+158 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
 
 <br />
 
