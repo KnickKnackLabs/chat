@@ -4,6 +4,9 @@
 #USAGE arg "<target>" help="Target channel to merge INTO"
 #USAGE flag "--dry-run" help="Show what would happen without writing"
 #USAGE flag "--no-tag" help="Don't annotate messages with source channel"
+#USAGE example "chat merge ops main" header="Merge ops into main (ops is consumed)"
+#USAGE example "chat merge ops main --dry-run" header="Preview the merge without writing"
+#USAGE example "chat merge ops main --no-tag" header="Merge without source channel annotations"
 # /// script
 # requires-python = ">=3.10"
 # ///

@@ -5,6 +5,11 @@
 #USAGE flag "--timeout <seconds>" help="Max seconds to wait (0 = forever)" default="120"
 #USAGE flag "--forever" help="Wait indefinitely (shorthand for --timeout 0)"
 #USAGE flag "--batch <batch>" help="Wait for N messages from others before waking (default: 1)" default="1"
+#USAGE example "chat wait --as alice" header="Wait for any new message"
+#USAGE example "chat wait ops --as alice" header="Wait for a message in a specific chat"
+#USAGE example "chat wait --as alice --timeout 60" header="Wait with a 60-second timeout"
+#USAGE example "chat wait --as alice --forever" header="Wait indefinitely"
+#USAGE example "chat wait --as alice --batch 3" header="Wait for 3 messages from others"
 set -eo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/chat.sh"

@@ -2,6 +2,9 @@
 #MISE description="Archive old messages and reset a chat"
 #USAGE arg "[chat]" help="Chat name (default: $CHAT_CHANNEL or default)"
 #USAGE flag "--yes" help="Skip confirmation"
+#USAGE example "chat clear" header="Reset the default chat"
+#USAGE example "chat clear myproject" header="Reset a specific chat"
+#USAGE example "chat clear --yes" header="Skip the confirmation prompt"
 set -eo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/chat.sh"

@@ -10,6 +10,11 @@
 #USAGE flag "--before <before>" help="Show messages before this date (YYYY-MM-DD)"
 #USAGE flag "--json" help="Output as JSON array"
 #USAGE flag "--id" help="Include message IDs in JSON output"
+#USAGE example "chat read --as alice" header="Read new messages as alice"
+#USAGE example "chat read --all --last 10" header="Show the last 10 messages"
+#USAGE example "chat read --from bob" header="Filter messages from bob"
+#USAGE example "chat read --after 2025-01-01" header="Show messages after a date"
+#USAGE example "chat read --json --as alice" header="Output new messages as JSON"
 set -eo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/chat.sh"

@@ -4,6 +4,10 @@
 #USAGE flag "--all" help="Include empty channels (hidden by default)"
 #USAGE flag "--unread" help="Only list channels with unread messages (requires identity)"
 #USAGE flag "--as <as>" help="Your identity (default: $CHAT_IDENTITY). When set, an Unread column is shown."
+#USAGE example "chat list" header="List all chats"
+#USAGE example "chat list --as alice" header="List chats with unread counts for alice"
+#USAGE example "chat list --unread --as alice" header="Show only chats with new messages"
+#USAGE example "chat list --json" header="Output as JSON"
 set -eo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/chat.sh"

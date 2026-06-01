@@ -3,6 +3,10 @@
 #USAGE arg "[chat]" help="Chat name (default: $CHAT_CHANNEL or default)"
 #USAGE flag "--as <as>" help="Your identity — shows unread count (default: $CHAT_IDENTITY)"
 #USAGE flag "--json" help="Output as JSON object"
+#USAGE example "chat status" header="Show default chat status"
+#USAGE example "chat status ops" header="Show a specific chat's status"
+#USAGE example "chat status --as alice" header="Show status with unread count for alice"
+#USAGE example "chat status --json" header="Output as JSON"
 set -eo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/chat.sh"

@@ -3,6 +3,8 @@
 #USAGE flag "--as <as>" help="Your identity (default: $CHAT_IDENTITY)"
 #USAGE flag "--json" help="Output as JSON with per-channel breakdown"
 #USAGE flag "--max-parallel <max_parallel>" default="8" help="Max channels to check in parallel"
+#USAGE example "chat unread --as alice" header="Count all unread messages for alice"
+#USAGE example "chat unread --as alice --json" header="Per-channel breakdown as JSON"
 set -eo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/chat.sh"

@@ -2,6 +2,8 @@
 #MISE description="Permanently remove a chat channel"
 #USAGE arg "[chat]" help="Chat name (default: $CHAT_CHANNEL or default)"
 #USAGE flag "--yes" help="Skip confirmation"
+#USAGE example "chat remove myproject" header="Remove a chat channel"
+#USAGE example "chat remove myproject --yes" header="Remove without confirmation"
 set -eo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/chat.sh"
