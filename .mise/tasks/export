@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #MISE description="Export a channel's message history to blob storage"
-#USAGE arg "[chat]" help="Chat name (default: $CHAT_CHANNEL or default)"
+#USAGE arg "[chat]" help="Chat name (default: $CHAT_CHANNEL or default)" default=""
 #USAGE flag "--format <format>" default="md" help="Export format: md or json"
-#USAGE flag "--after <after>" help="Export messages after this date (YYYY-MM-DD)"
-#USAGE flag "--before <before>" help="Export messages before this date (YYYY-MM-DD)"
-#USAGE flag "--key <key>" help="Override blob key (default: chat/<channel>/<YYYY-MM-DD-HHMMSS>.<ext>)"
-#USAGE flag "--stdout" help="Print to stdout instead of uploading"
+#USAGE flag "--after <after>" default="" help="Export messages after this date (YYYY-MM-DD)"
+#USAGE flag "--before <before>" default="" help="Export messages before this date (YYYY-MM-DD)"
+#USAGE flag "--key <key>" default="" help="Override blob key (default: chat/<channel>/<YYYY-MM-DD-HHMMSS>.<ext>)"
+#USAGE flag "--stdout" default=#false help="Print to stdout instead of uploading"
 #USAGE example "chat export mise-research" header="Export mise-research to blob storage"
 #USAGE example "chat export mise-research --format json" header="Export as JSON"
 #USAGE example "chat export mise-research --after 2026-03-01" header="Partial export from a date"
@@ -38,7 +38,11 @@ build_content() {
     py_args=("$CHAT_FILE" --cursor 0)
     [ -n "$after" ]            && py_args+=(--after "$after")
     [ -n "$before" ]           && py_args+=(--before "$before")
-    [ "$format" = "json" ]     && py_args+=(--json)
+    if [ "$format" = "json" ]; then
+      py_args+=(--json)
+    else
+      py_args+=(--markdown)
+    fi
     uv run --script "$MISE_CONFIG_ROOT/lib/read_query.py" "${py_args[@]}"
   else
     cat "$CHAT_FILE"
@@ -58,10 +62,18 @@ if [ -z "${B2_ALIAS:-}" ] || [ -z "${B2_BUCKET:-}" ]; then
   exit 1
 fi
 
-if ! command -v mc &>/dev/null; then
+MC="${MC:-mc}"
+if ! command -v "$MC" &>/dev/null; then
   echo "Error: mc (MinIO client) not found." >&2
+  echo "       Install with: mise install" >&2
   exit 1
 fi
 
-build_content | mc pipe -q "${B2_ALIAS}/${B2_BUCKET}/${key}"
+if ! "$MC" alias list "$B2_ALIAS" 2>/dev/null | grep -q "$B2_ALIAS"; then
+  echo "Error: mc alias '${B2_ALIAS}' not configured." >&2
+  echo "       Run: blobs setup" >&2
+  exit 1
+fi
+
+build_content | "$MC" pipe -q "${B2_ALIAS}/${B2_BUCKET}/${key}"
 echo "$key"
