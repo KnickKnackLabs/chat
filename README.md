@@ -18,8 +18,8 @@ Agents on the same machine exchange short messages through a shared channel.
 No server. No daemon. Just files, cursors, and bash.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 149 passing](https://img.shields.io/badge/tests-149%20passing-brightgreen?style=flat)](test/)
-![deps: jq + gum](https://img.shields.io/badge/deps-jq%20%2B%20gum-blue?style=flat)
+[![tests: 164 passing](https://img.shields.io/badge/tests-164%20passing-brightgreen?style=flat)](test/)
+![deps: jq + gum + mc](https://img.shields.io/badge/deps-jq%20%2B%20gum%20%2B%20mc-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
 </div>
@@ -90,7 +90,7 @@ FYI — just pushed the load testing scenarios to the note.
 
 ## Commands
 
-**10 commands**, each a standalone bash script in `.mise/tasks/`:
+**12 commands**, each a standalone bash script in `.mise/tasks/`:
 
 
 ### chat clear
@@ -104,6 +104,23 @@ chat clear [--yes] [chat]
 | Flag    | Description       | Default |
 | ------- | ----------------- | ------- |
 | `--yes` | Skip confirmation | —       |
+
+
+### chat export
+
+Export a channel's message history to blob storage
+
+```
+chat export [--format <format>] [--after <after>] [--before <before>] [--key <key>] [--stdout] [chat]
+```
+
+| Flag       | Description                                                           | Default |
+| ---------- | --------------------------------------------------------------------- | ------- |
+| `--format` | Export format: md or json                                             | `md`    |
+| `--after`  | Export messages after this date (YYYY-MM-DD)                          | —       |
+| `--before` | Export messages before this date (YYYY-MM-DD)                         | —       |
+| `--key`    | Override blob key (default: chat/<channel>/<YYYY-MM-DD-HHMMSS>.<ext>) | —       |
+| `--stdout` | Print to stdout instead of uploading                                  | —       |
 
 
 ### chat list
@@ -141,7 +158,7 @@ chat merge [--dry-run] [--no-tag] <source> <target>
 Read messages
 
 ```
-chat read [--as <as>] [--peek] [--all] [--last <last>] [--from <from>] [--after <after>] [--before <before>] [--json] [--id] [chat]
+chat read [--as <as>] [--peek] [--all] [--last <last>] [--by <by>] [--after <after>] [--before <before>] [--json] [--id] [chat]
 ```
 
 | Flag       | Description                                                     | Default |
@@ -150,7 +167,7 @@ chat read [--as <as>] [--peek] [--all] [--last <last>] [--from <from>] [--after 
 | `--peek`   | Don't advance cursor (just look)                                | —       |
 | `--all`    | Show all messages, not just unread                              | —       |
 | `--last`   | Show only the last N messages (of unread, or of all with --all) | —       |
-| `--from`   | Filter messages by sender                                       | —       |
+| `--by`     | Filter messages by sender                                       | —       |
 | `--after`  | Show messages after this date (YYYY-MM-DD)                      | —       |
 | `--before` | Show messages before this date (YYYY-MM-DD)                     | —       |
 | `--json`   | Output as JSON array                                            | —       |
@@ -183,6 +200,20 @@ chat send [--as <as>] [--chat <chat>] [-f, --force] <message>
 | `--as`        | Your identity (default: $CHAT_IDENTITY)       | —       |
 | `--chat`      | Chat name (default: $CHAT_CHANNEL or default) | —       |
 | `-f, --force` | Send even if there are unread messages        | —       |
+
+
+### chat sig
+
+Manage your message signature
+
+```
+chat sig [--as <as>] [--clear] [signature]
+```
+
+| Flag      | Description                             | Default |
+| --------- | --------------------------------------- | ------- |
+| `--as`    | Your identity (default: $CHAT_IDENTITY) | —       |
+| `--clear` | Remove your signature                   | —       |
 
 
 ### chat status
@@ -299,6 +330,8 @@ $HOME/.local/share/chat/
 │       ├── zeke            # "42" — last-read line number
 │       ├── brownie         # "38"
 │       └── junior          # "42"
+├── .signatures/
+│   └── alice               # Optional message signature for identity alice
 └── archive/
     └── <chat-name>-2026-03-15-1042.md
 ```
@@ -321,7 +354,7 @@ cd chat && mise trust && mise install
 mise run test
 ```
 
-149 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
+164 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
 
 <br />
 

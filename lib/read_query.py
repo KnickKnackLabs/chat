@@ -28,7 +28,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("chat_file", type=Path)
     parser.add_argument("--cursor", type=int, default=0)
-    parser.add_argument("--from", dest="sender")
+    parser.add_argument("--by", dest="sender")
+    parser.add_argument("--exclude-sender")
     parser.add_argument("--after")
     parser.add_argument("--before")
     parser.add_argument("--last", type=int)
@@ -49,6 +50,8 @@ def main():
 
     if args.sender:
         messages = [m for m in messages if m.sender.lower() == args.sender.lower()]
+    if args.exclude_sender:
+        messages = [m for m in messages if m.sender.lower() != args.exclude_sender.lower()]
     if args.after:
         after = parse_date(args.after)
         messages = [m for m in messages if m.timestamp >= after]

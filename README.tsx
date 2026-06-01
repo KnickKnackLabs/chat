@@ -159,7 +159,7 @@ const readme = (
       <Badges>
         <Badge label="lang" value="bash" color="4EAA25" logo="gnubash" logoColor="white" />
         <Badge label="tests" value={`${testCount} passing`} color="brightgreen" href="test/" />
-        <Badge label="deps" value="jq + gum" color="blue" />
+        <Badge label="deps" value="jq + gum + mc" color="blue" />
         <Badge label="License" value="MIT" color="blue" />
       </Badges>
     </Center>
@@ -322,6 +322,8 @@ chat status`}</CodeBlock>
 │       ├── zeke            # "42" — last-read line number
 │       ├── brownie         # "38"
 │       └── junior          # "42"
+├── .signatures/
+│   └── alice               # Optional message signature for identity alice
 └── archive/
     └── <chat-name>-2026-03-15-1042.md`}</CodeBlock>
     </Section>

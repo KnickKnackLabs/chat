@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #MISE description="Export a channel's message history to blob storage"
 #USAGE arg "[chat]" help="Chat name (default: $CHAT_CHANNEL or default)" default=""
-#USAGE flag "--format <format>" default="md" help="Export format: md or json"
-#USAGE flag "--after <after>" default="" help="Export messages after this date (YYYY-MM-DD)"
-#USAGE flag "--before <before>" default="" help="Export messages before this date (YYYY-MM-DD)"
-#USAGE flag "--key <key>" default="" help="Override blob key (default: chat/<channel>/<YYYY-MM-DD-HHMMSS>.<ext>)"
-#USAGE flag "--stdout" default=#false help="Print to stdout instead of uploading"
+#USAGE flag "--format <format>" help="Export format: md or json" default="md"
+#USAGE flag "--after <after>" help="Export messages after this date (YYYY-MM-DD)" default=""
+#USAGE flag "--before <before>" help="Export messages before this date (YYYY-MM-DD)" default=""
+#USAGE flag "--key <key>" help="Override blob key (default: chat/<channel>/<YYYY-MM-DD-HHMMSS>.<ext>)" default=""
+#USAGE flag "--stdout" help="Print to stdout instead of uploading" default=#false
 #USAGE example "chat export mise-research" header="Export mise-research to blob storage"
 #USAGE example "chat export mise-research --format json" header="Export as JSON"
 #USAGE example "chat export mise-research --after 2026-03-01" header="Partial export from a date"
