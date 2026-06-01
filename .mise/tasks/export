@@ -62,18 +62,18 @@ if [ -z "${B2_ALIAS:-}" ] || [ -z "${B2_BUCKET:-}" ]; then
   exit 1
 fi
 
-MC="${MC:-mc}"
-if ! command -v "$MC" &>/dev/null; then
-  echo "Error: mc (MinIO client) not found." >&2
+BLOBS="${BLOBS:-blobs}"
+if ! command -v "$BLOBS" &>/dev/null; then
+  echo "Error: blobs command not found." >&2
   echo "       Install with: mise install" >&2
   exit 1
 fi
 
-if ! "$MC" alias list "$B2_ALIAS" 2>/dev/null | grep -q "$B2_ALIAS"; then
-  echo "Error: mc alias '${B2_ALIAS}' not configured." >&2
-  echo "       Run: blobs setup" >&2
+upload_err=$(mktemp)
+if ! build_content | "$BLOBS" put "$key" - >/dev/null 2>"$upload_err"; then
+  cat "$upload_err" >&2
+  rm -f "$upload_err"
   exit 1
 fi
-
-build_content | "$MC" pipe -q "${B2_ALIAS}/${B2_BUCKET}/${key}"
+rm -f "$upload_err"
 echo "$key"

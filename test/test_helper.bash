@@ -20,7 +20,7 @@ setup() {
   unset CHAT_CALLER_PWD
   unset B2_ALIAS
   unset B2_BUCKET
-  unset MC
+  unset BLOBS
 
   source "$CHAT_REPO_ROOT/lib/chat.sh"
   chat_resolve "test-chat"
@@ -57,31 +57,23 @@ mark_read() {
   chat_set_cursor "$agent"
 }
 
-# Helper: install a mock mc command for upload-path tests.
-_setup_mock_mc() {
-  export MC_LOG="$BATS_TEST_TMPDIR/mc.log"
-  export MC_STDIN="$BATS_TEST_TMPDIR/mc.stdin"
-  export MC="$BATS_TEST_TMPDIR/mc"
-  cat > "$MC" <<'EOF'
+# Helper: install a mock blobs command for upload-path tests.
+_setup_mock_blobs() {
+  export BLOBS_LOG="$BATS_TEST_TMPDIR/blobs.log"
+  export BLOBS_STDIN="$BATS_TEST_TMPDIR/blobs.stdin"
+  export BLOBS="$BATS_TEST_TMPDIR/blobs"
+  cat > "$BLOBS" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-printf '%s\n' "$*" >> "$MC_LOG"
-case "$1" in
-  alias)
-    if [ "${2:-}" = "list" ]; then
-      printf '%s\n' "${3:-test}"
-      exit 0
-    fi
-    ;;
-  pipe)
-    cat > "$MC_STDIN"
-    exit 0
-    ;;
-esac
-echo "unexpected mc invocation: $*" >&2
+printf '%s\n' "$*" >> "$BLOBS_LOG"
+if [ "$1" = "put" ]; then
+  cat > "$BLOBS_STDIN"
+  exit 0
+fi
+echo "unexpected blobs invocation: $*" >&2
 exit 1
 EOF
-  chmod +x "$MC"
+  chmod +x "$BLOBS"
 }
 
 # Shim: call chat tasks like real CLI usage

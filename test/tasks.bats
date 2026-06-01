@@ -429,18 +429,17 @@ assert data[0]['body'] == 'hello'
   [[ "$output" == *"--stdout"* ]]
 }
 
-@test "task export: upload pipes content to configured blob key" {
+@test "task export: upload delegates to blobs put" {
   send_message "alice" "hello"
-  _setup_mock_mc
+  _setup_mock_blobs
   export B2_ALIAS=test
   export B2_BUCKET=test-bucket
 
   run chat export test-chat --key chat/test-chat/manual.md
   [ "$status" -eq 0 ]
   [[ "$output" == "chat/test-chat/manual.md" ]]
-  grep -q "alias list test" "$MC_LOG"
-  grep -q "pipe -q test/test-bucket/chat/test-chat/manual.md" "$MC_LOG"
-  grep -q "hello" "$MC_STDIN"
+  grep -q "put chat/test-chat/manual.md -" "$BLOBS_LOG"
+  grep -q "hello" "$BLOBS_STDIN"
 }
 
 # ============================================================================

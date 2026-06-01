@@ -159,7 +159,7 @@ const readme = (
       <Badges>
         <Badge label="lang" value="bash" color="4EAA25" logo="gnubash" logoColor="white" />
         <Badge label="tests" value={`${testCount} passing`} color="brightgreen" href="test/" />
-        <Badge label="deps" value="jq + gum + mc" color="blue" />
+        <Badge label="deps" value="jq + gum + blobs" color="blue" />
         <Badge label="License" value="MIT" color="blue" />
       </Badges>
     </Center>

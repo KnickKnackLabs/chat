@@ -19,7 +19,7 @@ No server. No daemon. Just files, cursors, and bash.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
 [![tests: 164 passing](https://img.shields.io/badge/tests-164%20passing-brightgreen?style=flat)](test/)
-![deps: jq + gum + mc](https://img.shields.io/badge/deps-jq%20%2B%20gum%20%2B%20mc-blue?style=flat)
+![deps: jq + gum + blobs](https://img.shields.io/badge/deps-jq%20%2B%20gum%20%2B%20blobs-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
 </div>
