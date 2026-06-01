@@ -11,6 +11,7 @@ import {
   List, Item,
   Raw, HtmlLink, Sub, HtmlTable, HtmlTr, HtmlTd,
 } from "readme/src/components";
+import { parseMiseTasks, type MiseCommand } from "./readme/mise";
 
 // ── Dynamic data ─────────────────────────────────────────────
 
@@ -19,56 +20,7 @@ const TASK_DIR = join(REPO_DIR, ".mise/tasks");
 const LIB_FILE = join(REPO_DIR, "lib/chat.sh");
 
 // Extract commands from task files by parsing #MISE and #USAGE headers
-interface Command {
-  name: string;
-  description: string;
-  flags: { name: string; shortFlag?: string; valueName?: string; help: string; required?: boolean; default?: string; isBoolean: boolean }[];
-  args: { name: string; help: string; optional: boolean }[];
-  hidden: boolean;
-}
-
-function parseTask(filename: string): Command {
-  const src = readFileSync(join(TASK_DIR, filename), "utf-8");
-  const lines = src.split("\n");
-
-  const desc = lines.find(l => l.startsWith("#MISE description="))
-    ?.match(/#MISE description="(.+)"/)?.[1] ?? "";
-
-  const hidden = lines.some(l => l.includes("#MISE hide=true"));
-
-  const flags: Command["flags"] = [];
-  const args: Command["args"] = [];
-
-  for (const line of lines) {
-    const flagMatch = line.match(/#USAGE flag "(-[\w-]+ )?--(\w[\w-]*)(?:\s+<(\w+)>)?" help="([^"]+)"(.*)/);
-    if (flagMatch) {
-      const shortFlag = flagMatch[1]?.trim(); // e.g. "-f"
-      const name = flagMatch[2].replace(/_/g, "-");
-      const valueName = flagMatch[3]; // e.g. "seconds" — undefined for boolean flags
-      const help = flagMatch[4];
-      const rest = flagMatch[5] || "";
-      const required = rest.includes("required=#true");
-      const defMatch = rest.match(/default="([^"]+)"/);
-      flags.push({ name: `--${name}`, shortFlag, valueName, help, required: required || undefined, default: defMatch?.[1], isBoolean: !valueName });
-    }
-
-    const argMatch = line.match(/#USAGE arg "([<\[])(\w+)([>\]])" help="([^"]+)"/);
-    if (argMatch) {
-      args.push({ name: argMatch[2], help: argMatch[4], optional: argMatch[1] === "[" });
-    }
-  }
-
-  return { name: filename, description: desc, flags, args, hidden };
-}
-
-// Parse all tasks
-const taskFiles = readdirSync(TASK_DIR, { withFileTypes: true })
-  .filter(entry => entry.isFile() && !entry.name.startsWith(".") && !entry.name.startsWith("_"))
-  .map(entry => entry.name);
-const commands = taskFiles
-  .map(parseTask)
-  .filter(c => !c.hidden)
-  .sort((a, b) => a.name.localeCompare(b.name));
+const commands = parseMiseTasks(TASK_DIR);
 
 // Count tests
 const testDir = join(REPO_DIR, "test");
@@ -118,7 +70,7 @@ const cursorDiagram = [
 ].join("\n");
 
 // Build command usage string
-function cmdUsage(cmd: Command): string {
+function cmdUsage(cmd: MiseCommand): string {
   const parts = [`chat ${cmd.name}`];
   for (const f of cmd.flags) {
     const flagName = f.shortFlag ? `${f.shortFlag}, ${f.name}` : f.name;
