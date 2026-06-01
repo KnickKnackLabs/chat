@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+#MISE description="Undo the last cursor advance (restore previous read position)"
+#USAGE arg "[chat]" help="Chat name (default: $CHAT_CHANNEL or default)" default=""
+#USAGE flag "--as <as>" help="Your identity (default: $CHAT_IDENTITY)" default=""
+#USAGE example "chat cursor:undo --as alice" header="Restore alice's cursor to before the last read"
+#USAGE example "chat cursor:undo ops --as alice" header="Restore cursor on a specific chat"
+set -eo pipefail
+
+source "$MISE_CONFIG_ROOT/lib/chat.sh"
+chat_resolve "${usage_chat:-}"
+chat_require_file
+chat_require_identity "${usage_as:-}"
+
+cursor_file="$CHAT_CURSOR_DIR/$CHAT_IDENTITY"
+prev_file="${cursor_file}.prev"
+
+if [ ! -f "$prev_file" ]; then
+  echo "Nothing to undo for $CHAT_IDENTITY on $CHAT_NAME."
+  exit 0
+fi
+
+mv "$prev_file" "$cursor_file"
+echo "Cursor restored for $CHAT_IDENTITY on $CHAT_NAME."

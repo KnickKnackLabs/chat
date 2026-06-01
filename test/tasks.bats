@@ -871,6 +871,163 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
   [[ "$output" == *"identity required"* ]]
 }
 
+@test "task cursor:clear: clears inherited usage env for omitted chat and identity" {
+  export CHAT_CHANNEL="test-chat"
+  export CHAT_IDENTITY="alice"
+  export usage_chat="no-such-channel"
+  export usage_as="mallory"
+
+  send_message "bob" "msg"
+  mark_read "alice"
+
+  run chat cursor:clear
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Cursor cleared for alice on test-chat"* ]]
+  [ "$(chat_get_cursor "alice")" = "0" ]
+}
+
+# ============================================================================
+# cursor:undo task
+# ============================================================================
+
+@test "task cursor:undo: restores cursor to pre-read position" {
+  send_message "bob" "msg1"
+  mark_read "alice"
+  local cursor_before
+  cursor_before=$(chat_get_cursor "alice")
+
+  send_message "bob" "msg2"
+  run chat read test-chat --as alice
+  [ "$status" -eq 0 ]
+
+  run chat cursor:undo test-chat --as alice
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Cursor restored"* ]]
+
+  local cursor_after
+  cursor_after=$(chat_get_cursor "alice")
+  [ "$cursor_after" = "$cursor_before" ]
+}
+
+@test "task cursor:undo: second read after undo shows same messages" {
+  mark_read "alice"
+  send_message "bob" "hello again"
+
+  run chat read test-chat --as alice
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"hello again"* ]]
+
+  run chat cursor:undo test-chat --as alice
+  [ "$status" -eq 0 ]
+
+  run chat read test-chat --as alice
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"hello again"* ]]
+}
+
+@test "task cursor:undo: no-op when no prior read" {
+  run chat cursor:undo test-chat --as alice
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Nothing to undo"* ]]
+}
+
+@test "task cursor:undo: no-op after read --peek" {
+  mark_read "alice"
+  send_message "bob" "peeked"
+
+  run chat read test-chat --as alice --peek
+  [ "$status" -eq 0 ]
+
+  run chat cursor:undo test-chat --as alice
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Nothing to undo"* ]]
+}
+
+@test "task cursor:undo: no-op read does not clobber previous position" {
+  mark_read "alice"
+  send_message "bob" "recover me"
+
+  run chat read test-chat --as alice
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"recover me"* ]]
+
+  run chat read test-chat --as alice
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"No new messages"* ]]
+
+  run chat cursor:undo test-chat --as alice
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Cursor restored"* ]]
+
+  run chat read test-chat --as alice
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"recover me"* ]]
+}
+
+@test "task cursor:undo: second undo is a no-op (one level only)" {
+  send_message "bob" "msg"
+  mark_read "alice"
+  send_message "bob" "msg2"
+
+  run chat read test-chat --as alice
+  [ "$status" -eq 0 ]
+
+  run chat cursor:undo test-chat --as alice
+  [ "$status" -eq 0 ]
+
+  run chat cursor:undo test-chat --as alice
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Nothing to undo"* ]]
+}
+
+@test "task cursor:undo: no-op after cursor:clear" {
+  send_message "bob" "msg"
+  mark_read "alice"
+  send_message "bob" "msg2"
+
+  run chat read test-chat --as alice
+  [ "$status" -eq 0 ]
+
+  run chat cursor:clear test-chat --as alice
+  [ "$status" -eq 0 ]
+
+  run chat cursor:undo test-chat --as alice
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Nothing to undo"* ]]
+}
+
+@test "task cursor:undo: requires identity" {
+  unset CHAT_IDENTITY
+  run chat cursor:undo test-chat
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"identity required"* ]]
+}
+
+@test "task cursor:undo: clears inherited usage env for omitted chat and identity" {
+  export CHAT_CHANNEL="test-chat"
+  export CHAT_IDENTITY="alice"
+  export usage_chat="no-such-channel"
+  export usage_as="mallory"
+
+  mark_read "alice"
+  send_message "bob" "recover via env"
+
+  run chat read
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"recover via env"* ]]
+
+  run chat cursor:undo
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Cursor restored for alice on test-chat"* ]]
+}
+
+@test "task cursor:undo: help examples use the actual task name" {
+  run chat cursor:undo --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"chat cursor:undo --as alice"* ]]
+  [[ "$output" != *"chat cursor undo"* ]]
+}
+
 # ============================================================================
 # non-existent channel — read-only commands should fail, send should create
 # ============================================================================
@@ -906,6 +1063,12 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
 
 @test "task cursor:clear: fails on non-existent channel" {
   run chat cursor:clear no-such-channel --as alice
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"does not exist"* ]]
+}
+
+@test "task cursor:undo: fails on non-existent channel" {
+  run chat cursor:undo no-such-channel --as alice
   [ "$status" -ne 0 ]
   [[ "$output" == *"does not exist"* ]]
 }

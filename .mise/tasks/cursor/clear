@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Clear your cursor (mark everything as unread)"
-#USAGE arg "[chat]" help="Chat name (default: $CHAT_CHANNEL or default)"
-#USAGE flag "--as <as>" help="Your identity (default: $CHAT_IDENTITY)"
+#USAGE arg "[chat]" help="Chat name (default: $CHAT_CHANNEL or default)" default=""
+#USAGE flag "--as <as>" help="Your identity (default: $CHAT_IDENTITY)" default=""
 #USAGE example "chat cursor:clear --as alice" header="Mark all messages as unread for alice"
 #USAGE example "chat cursor:clear ops --as alice" header="Mark a specific chat as unread"
 set -eo pipefail
@@ -18,5 +18,5 @@ if [ ! -f "$cursor_file" ]; then
   exit 0
 fi
 
-rm -f "$cursor_file"
+rm -f "$cursor_file" "${cursor_file}.prev"
 echo "Cursor cleared for $CHAT_IDENTITY on $CHAT_NAME."
