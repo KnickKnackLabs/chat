@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+#MISE description="Export a channel's message history to blob storage"
+#USAGE arg "[chat]" default="" help="Chat name (default: $CHAT_CHANNEL or default)"
+#USAGE flag "--format <format>" default="md" help="Export format: md or json"
+#USAGE flag "--after <after>" default="" help="Export messages after this date (YYYY-MM-DD)"
+#USAGE flag "--before <before>" default="" help="Export messages before this date (YYYY-MM-DD)"
+#USAGE flag "--key <key>" default="" help="Override blob key (default: chat/<channel>/<YYYY-MM-DD-HHMMSS>.<ext>)"
+#USAGE flag "--stdout" default=#false help="Print to stdout instead of uploading"
+#USAGE example "chat export mise-research" header="Export mise-research to blob storage"
+#USAGE example "chat export mise-research --format json" header="Export as JSON"
+#USAGE example "chat export mise-research --after 2026-03-01" header="Partial export from a date"
+#USAGE example "chat export mise-research --stdout" header="Print export to stdout"
+set -eo pipefail
+
+source "$MISE_CONFIG_ROOT/lib/chat.sh"
+chat_resolve "${usage_chat:-}"
+chat_require_file
+
+format="${usage_format:-md}"
+after="${usage_after:-}"
+before="${usage_before:-}"
+key_override="${usage_key:-}"
+to_stdout="${usage_stdout:-false}"
+
+if [ "$format" != "md" ] && [ "$format" != "json" ]; then
+  echo "Error: --format must be md or json" >&2
+  exit 1
+fi
+
+# Build key
+ts=$(date -u +"%Y-%m-%d-%H%M%S")
+ext="$format"
+key="${key_override:-chat/${CHAT_NAME}/${ts}.${ext}}"
+
+# Build content — use read_query.py when filters or JSON are needed, raw file otherwise
+build_content() {
+  if [ -n "$after" ] || [ -n "$before" ] || [ "$format" = "json" ]; then
+    py_args=("$CHAT_FILE" --cursor 0)
+    [ -n "$after" ]            && py_args+=(--after "$after")
+    [ -n "$before" ]           && py_args+=(--before "$before")
+    if [ "$format" = "json" ]; then
+      py_args+=(--json)
+    else
+      py_args+=(--markdown)
+    fi
+    uv run --script "$MISE_CONFIG_ROOT/lib/read_query.py" "${py_args[@]}"
+  else
+    cat "$CHAT_FILE"
+  fi
+}
+
+# Upload or print
+if [ "$to_stdout" = "true" ]; then
+  build_content
+  exit 0
+fi
+
+# Require blob config
+if [ -z "${B2_ALIAS:-}" ] || [ -z "${B2_BUCKET:-}" ]; then
+  echo "Error: B2_ALIAS and B2_BUCKET must be set to upload." >&2
+  echo "       Use --stdout to print the export locally." >&2
+  exit 1
+fi
+
+BLOBS="${BLOBS:-blobs}"
+if ! command -v "$BLOBS" &>/dev/null; then
+  echo "Error: blobs command not found." >&2
+  echo "       Install with: mise install" >&2
+  exit 1
+fi
+
+upload_err=$(mktemp)
+if ! build_content | "$BLOBS" put "$key" - >/dev/null 2>"$upload_err"; then
+  cat "$upload_err" >&2
+  rm -f "$upload_err"
+  exit 1
+fi
+rm -f "$upload_err"
+echo "$key"

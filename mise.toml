@@ -11,6 +11,7 @@ jq = "latest"
 gum = "latest"
 uv = "latest"
 bats = "1.13.0"
+"shiv:blobs" = "0.1"
 "shiv:codebase" = "0.2.0"                  # Codebase linting + migrations
 "shiv:readme" = "0.1.1"
 

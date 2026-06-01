@@ -89,14 +89,23 @@ load test_helper
   [[ "$output" == *"default-channel message"* ]]
 }
 
-@test "task read: --from filters by sender" {
+@test "task read: --by filters by sender" {
   mark_read "alice"
   send_message "bob" "from bob"
   send_message "carol" "from carol"
-  run chat read test-chat --as alice --from bob
+  run chat read test-chat --as alice --by bob
   [ "$status" -eq 0 ]
   [[ "$output" == *"from bob"* ]]
   [[ "$output" != *"from carol"* ]]
+}
+
+@test "task read: omitted --by ignores stale usage_by env" {
+  send_message "bob" "from bob"
+  send_message "carol" "from carol"
+  usage_by=bob run chat read test-chat --as alice --all
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"from bob"* ]]
+  [[ "$output" == *"from carol"* ]]
 }
 
 @test "task read: --all --last shows last N messages" {
@@ -122,12 +131,12 @@ load test_helper
   [[ "$output" == *"new"* ]]
 }
 
-@test "task read: --from implies --all (shows past cursor)" {
+@test "task read: --by implies --all (shows past cursor)" {
   send_message "alice" "before cursor"
   mark_read "bob"
   send_message "alice" "after cursor"
-  # bob's cursor is past "before cursor", but --from alice should show both
-  run chat read test-chat --as bob --from alice
+  # bob's cursor is past "before cursor", but --by alice should show both
+  run chat read test-chat --as bob --by alice
   [ "$status" -eq 0 ]
   [[ "$output" == *"before cursor"* ]]
   [[ "$output" == *"after cursor"* ]]
@@ -217,10 +226,29 @@ load test_helper
   # bob sends a message alice hasn't read
   send_message "bob" "unread msg"
 
-  # alice tries to send — guard should block
+  # alice tries to send — guard should block and show the unread message inline
   run chat send --as alice --chat test-chat "blocked"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"unread"* ]]
+  [[ "$output" == *"Aborted: you have 1 unread message(s) in test-chat."* ]]
+  [[ "$output" == *"unread msg"* ]]
+  [[ "$output" == *"To send anyway, use: chat send --force"* ]]
+}
+
+@test "task send: guard preview omits sender's own unread messages" {
+  send_message "alice" "setup"
+  mark_read "alice"
+
+  send_message "bob" "blocking msg"
+  send_message "alice" "own one"
+  send_message "alice" "own two"
+  send_message "alice" "own three"
+
+  run chat send --as alice --chat test-chat "blocked"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"blocking msg"* ]]
+  [[ "$output" != *"own one"* ]]
+  [[ "$output" != *"own two"* ]]
+  [[ "$output" != *"own three"* ]]
 }
 
 @test "task send: --force bypasses unread guard" {
@@ -232,6 +260,17 @@ load test_helper
   run chat send --as alice --chat test-chat "forced" --force
   [ "$status" -eq 0 ]
   grep -q "forced" "$CHAT_FILE"
+}
+
+@test "task send: omitted --force ignores stale usage_force env" {
+  run chat send --as alice --chat test-chat "first"
+  [ "$status" -eq 0 ]
+  mark_read "alice"
+  send_message "bob" "unread"
+
+  usage_force=true run chat send --as alice --chat test-chat "blocked"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Aborted: you have 1 unread message(s) in test-chat."* ]]
 }
 
 @test "task send: new agent (cursor=0) bypasses guard" {
@@ -284,6 +323,129 @@ load test_helper
   run chat read test-chat --as alice
   [ "$status" -eq 0 ]
   [[ "$output" == *"hey alice"* ]]
+}
+
+# ============================================================================
+# sig task
+# ============================================================================
+
+@test "task sig: sets and shows signature" {
+  run chat sig --as alice "sent from pi"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Signature set for alice."* ]]
+
+  run chat sig --as alice
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Signature for alice:"* ]]
+  [[ "$output" == *"sent from pi"* ]]
+}
+
+@test "task sig: send appends signature" {
+  run chat sig --as alice "sent from pi"
+  [ "$status" -eq 0 ]
+
+  run chat send --as alice --chat test-chat "hello"
+  [ "$status" -eq 0 ]
+  grep -q "hello" "$CHAT_FILE"
+  grep -q '^--$' "$CHAT_FILE"
+  grep -q "sent from pi" "$CHAT_FILE"
+}
+
+@test "task sig: clear removes signature" {
+  run chat sig --as alice "sent from pi"
+  [ "$status" -eq 0 ]
+
+  run chat sig --as alice --clear
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Signature cleared for alice."* ]]
+
+  run chat send --as alice --chat test-chat "hello"
+  [ "$status" -eq 0 ]
+  grep -q "hello" "$CHAT_FILE"
+  ! grep -q "sent from pi" "$CHAT_FILE"
+}
+
+@test "task sig: rejects clear with signature text" {
+  run chat sig --as alice --clear "sent from pi"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"not both"* ]]
+}
+
+@test "task sig: omitted --clear ignores stale usage_clear env" {
+  usage_clear=true run chat sig --as alice "sent from pi"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Signature set for alice."* ]]
+
+  run chat sig --as alice
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"sent from pi"* ]]
+}
+
+# ============================================================================
+# export task
+# ============================================================================
+
+@test "task export: stdout markdown exports raw channel file" {
+  send_message "alice" "hello"
+  run chat export test-chat --stdout
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"# test-chat"* ]]
+  [[ "$output" == *"### alice"* ]]
+  [[ "$output" == *"hello"* ]]
+}
+
+@test "task export: stdout json exports structured messages" {
+  send_message "alice" "hello"
+  run chat export test-chat --stdout --format json
+  [ "$status" -eq 0 ]
+  echo "$output" | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+assert data[0]['sender'] == 'alice'
+assert data[0]['body'] == 'hello'
+"
+}
+
+@test "task export: filtered markdown stays markdown" {
+  send_message "alice" "hello"
+  run chat export test-chat --stdout --after 1970-01-01
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"# test-chat"* ]]
+  [[ "$output" == *"### alice"* ]]
+  [[ "$output" == *"hello"* ]]
+}
+
+@test "task export: rejects invalid format" {
+  run chat export test-chat --stdout --format xml
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"--format must be md or json"* ]]
+}
+
+@test "task export: README documents flags when default precedes help" {
+  grep -q 'chat export \[--format <format>\].*\[chat\]' "$CHAT_REPO_ROOT/README.md"
+  grep -q '| `--format` | Export format: md or json.*| `md`' "$CHAT_REPO_ROOT/README.md"
+  grep -q '| `--stdout` | Print to stdout instead of uploading' "$CHAT_REPO_ROOT/README.md"
+}
+
+@test "task export: upload requires blob env" {
+  send_message "alice" "hello"
+  run chat export test-chat
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"B2_ALIAS and B2_BUCKET must be set"* ]]
+  [[ "$output" == *"--stdout"* ]]
+}
+
+@test "task export: upload delegates to blobs put" {
+  send_message "alice" "hello"
+  _setup_mock_blobs
+  export B2_ALIAS=test
+  export B2_BUCKET=test-bucket
+
+  run chat export test-chat --key chat/test-chat/manual.md
+  [ "$status" -eq 0 ]
+  [[ "$output" == "chat/test-chat/manual.md" ]]
+  grep -q "put chat/test-chat/manual.md -" "$BLOBS_LOG"
+  grep -q "hello" "$BLOBS_STDIN"
 }
 
 # ============================================================================
@@ -848,6 +1010,13 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
   run chat cursor:undo no-such-channel --as alice
   [ "$status" -ne 0 ]
   [[ "$output" == *"does not exist"* ]]
+}
+
+@test "task cursor:clear: help examples use the actual task name" {
+  run chat cursor:clear --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"chat cursor:clear --as alice"* ]]
+  [[ "$output" != *"chat cursor clear"* ]]
 }
 
 @test "task send: creates channel that did not exist" {

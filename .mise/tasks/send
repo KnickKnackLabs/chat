@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #MISE description="Send a message to a chat"
-#USAGE flag "--as <as>" help="Your identity (default: $CHAT_IDENTITY)"
-#USAGE flag "--chat <chat>" help="Chat name (default: $CHAT_CHANNEL or default)"
-#USAGE flag "-f --force" help="Send even if there are unread messages"
+#USAGE flag "--as <as>" help="Your identity (default: $CHAT_IDENTITY)" default=""
+#USAGE flag "--chat <chat>" help="Chat name (default: $CHAT_CHANNEL or default)" default=""
+#USAGE flag "-f --force" help="Send even if there are unread messages" default=#false
 #USAGE arg "<message>" help="The message to send (or - for stdin)"
 #USAGE example "chat send --as alice 'hello everyone'" header="Send a message as alice"
 #USAGE example "chat send --chat ops --as alice 'deploying now'" header="Send to a specific chat"
@@ -39,14 +39,26 @@ if [ "$line_count" -gt "$MAX_LINES" ]; then
   exit 1
 fi
 
+# Append signature if set (after line-count check so limit applies to message only)
+sig_file="$CHAT_DATA_DIR/.signatures/$from"
+if [ -f "$sig_file" ]; then
+  message="${message}
+
+--
+$(cat "$sig_file")"
+fi
+
 # Guard: warn if sender has unread messages (skip for first-time senders)
 if [ "${usage_force:-false}" != "true" ]; then
   cursor=$(chat_get_cursor "$from")
   if [ "$cursor" -gt 0 ]; then
     unread=$(chat_count_new "$from")
     if [ "$unread" -gt 0 ]; then
-      echo "Error: you have ${unread} unread message(s) in ${CHAT_NAME}." >&2
-      echo "Run 'chat read' first, or use --force to send anyway." >&2
+      echo "Aborted: you have ${unread} unread message(s) in ${CHAT_NAME}." >&2
+      echo "" >&2
+      uv run --script "$MISE_CONFIG_ROOT/lib/read_query.py" "$CHAT_FILE" --cursor "$cursor" --exclude-sender "$from" --last 3 >&2
+      echo "" >&2
+      echo "To send anyway, use: chat send --force" >&2
       exit 1
     fi
   fi
