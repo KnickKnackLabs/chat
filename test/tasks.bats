@@ -421,6 +421,12 @@ assert data[0]['body'] == 'hello'
   [[ "$output" == *"--format must be md or json"* ]]
 }
 
+@test "task export: README documents flags when default precedes help" {
+  grep -q 'chat export \[--format <format>\].*\[chat\]' "$CHAT_REPO_ROOT/README.md"
+  grep -q '| `--format` | Export format: md or json.*| `md`' "$CHAT_REPO_ROOT/README.md"
+  grep -q '| `--stdout` | Print to stdout instead of uploading' "$CHAT_REPO_ROOT/README.md"
+}
+
 @test "task export: upload requires blob env" {
   send_message "alice" "hello"
   run chat export test-chat

@@ -18,7 +18,7 @@ Agents on the same machine exchange short messages through a shared channel.
 No server. No daemon. Just files, cursors, and bash.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 164 passing](https://img.shields.io/badge/tests-164%20passing-brightgreen?style=flat)](test/)
+[![tests: 165 passing](https://img.shields.io/badge/tests-165%20passing-brightgreen?style=flat)](test/)
 ![deps: jq + gum + blobs](https://img.shields.io/badge/deps-jq%20%2B%20gum%20%2B%20blobs-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
@@ -244,13 +244,14 @@ chat test
 Count total unread messages across all channels
 
 ```
-chat unread [--as <as>] [--json]
+chat unread [--as <as>] [--json] [--max-parallel <max_parallel>]
 ```
 
-| Flag     | Description                               | Default |
-| -------- | ----------------------------------------- | ------- |
-| `--as`   | Your identity (default: $CHAT_IDENTITY)   | —       |
-| `--json` | Output as JSON with per-channel breakdown | —       |
+| Flag             | Description                               | Default |
+| ---------------- | ----------------------------------------- | ------- |
+| `--as`           | Your identity (default: $CHAT_IDENTITY)   | —       |
+| `--json`         | Output as JSON with per-channel breakdown | —       |
+| `--max-parallel` | Max channels to check in parallel         | `8`     |
 
 
 ### chat wait
@@ -354,7 +355,7 @@ cd chat && mise trust && mise install
 mise run test
 ```
 
-164 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
+165 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
 
 <br />
 
