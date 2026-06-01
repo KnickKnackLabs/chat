@@ -262,6 +262,17 @@ load test_helper
   grep -q "forced" "$CHAT_FILE"
 }
 
+@test "task send: omitted --force ignores stale usage_force env" {
+  run chat send --as alice --chat test-chat "first"
+  [ "$status" -eq 0 ]
+  mark_read "alice"
+  send_message "bob" "unread"
+
+  usage_force=true run chat send --as alice --chat test-chat "blocked"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Aborted: you have 1 unread message(s) in test-chat."* ]]
+}
+
 @test "task send: new agent (cursor=0) bypasses guard" {
   # bob has never read — cursor is 0
   send_message "carol" "some message"
@@ -312,6 +323,62 @@ load test_helper
   run chat read test-chat --as alice
   [ "$status" -eq 0 ]
   [[ "$output" == *"hey alice"* ]]
+}
+
+# ============================================================================
+# sig task
+# ============================================================================
+
+@test "task sig: sets and shows signature" {
+  run chat sig --as alice "sent from pi"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Signature set for alice."* ]]
+
+  run chat sig --as alice
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Signature for alice:"* ]]
+  [[ "$output" == *"sent from pi"* ]]
+}
+
+@test "task sig: send appends signature" {
+  run chat sig --as alice "sent from pi"
+  [ "$status" -eq 0 ]
+
+  run chat send --as alice --chat test-chat "hello"
+  [ "$status" -eq 0 ]
+  grep -q "hello" "$CHAT_FILE"
+  grep -q '^--$' "$CHAT_FILE"
+  grep -q "sent from pi" "$CHAT_FILE"
+}
+
+@test "task sig: clear removes signature" {
+  run chat sig --as alice "sent from pi"
+  [ "$status" -eq 0 ]
+
+  run chat sig --as alice --clear
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Signature cleared for alice."* ]]
+
+  run chat send --as alice --chat test-chat "hello"
+  [ "$status" -eq 0 ]
+  grep -q "hello" "$CHAT_FILE"
+  ! grep -q "sent from pi" "$CHAT_FILE"
+}
+
+@test "task sig: rejects clear with signature text" {
+  run chat sig --as alice --clear "sent from pi"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"not both"* ]]
+}
+
+@test "task sig: omitted --clear ignores stale usage_clear env" {
+  usage_clear=true run chat sig --as alice "sent from pi"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Signature set for alice."* ]]
+
+  run chat sig --as alice
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"sent from pi"* ]]
 }
 
 # ============================================================================

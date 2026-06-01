@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #MISE description="Send a message to a chat"
-#USAGE flag "--as <as>" help="Your identity (default: $CHAT_IDENTITY)"
-#USAGE flag "--chat <chat>" help="Chat name (default: $CHAT_CHANNEL or default)"
-#USAGE flag "-f --force" help="Send even if there are unread messages"
+#USAGE flag "--as <as>" help="Your identity (default: $CHAT_IDENTITY)" default=""
+#USAGE flag "--chat <chat>" help="Chat name (default: $CHAT_CHANNEL or default)" default=""
+#USAGE flag "-f --force" help="Send even if there are unread messages" default=#false
 #USAGE arg "<message>" help="The message to send (or - for stdin)"
 #USAGE example "chat send --as alice 'hello everyone'" header="Send a message as alice"
 #USAGE example "chat send --chat ops --as alice 'deploying now'" header="Send to a specific chat"
@@ -37,6 +37,15 @@ if [ "$line_count" -gt "$MAX_LINES" ]; then
   echo "Error: message too long (${line_count} lines, max ${MAX_LINES})" >&2
   echo "Tip: write to /tmp/chat-attachment-\$(date +%Y%m%d-%H%M)-<topic>.md and reference it" >&2
   exit 1
+fi
+
+# Append signature if set (after line-count check so limit applies to message only)
+sig_file="$CHAT_DATA_DIR/.signatures/$from"
+if [ -f "$sig_file" ]; then
+  message="${message}
+
+--
+$(cat "$sig_file")"
 fi
 
 # Guard: warn if sender has unread messages (skip for first-time senders)

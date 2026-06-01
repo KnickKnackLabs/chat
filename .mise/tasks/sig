@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+#MISE description="Manage your message signature"
+#USAGE flag "--as <as>" help="Your identity (default: $CHAT_IDENTITY)" default=""
+#USAGE flag "--clear" help="Remove your signature" default=#false
+#USAGE arg "[signature]" help="Signature text to set (omit to show current)" default=""
+#USAGE example "chat sig --as alice 'sent from pi'" header="Set alice's signature"
+#USAGE example "chat sig --as alice" header="Show alice's current signature"
+#USAGE example "chat sig --as alice --clear" header="Remove alice's signature"
+set -eo pipefail
+
+source "$MISE_CONFIG_ROOT/lib/chat.sh"
+
+chat_require_identity "${usage_as:-}"
+identity="$CHAT_IDENTITY"
+
+sig_dir="$CHAT_DATA_DIR/.signatures"
+sig_file="$sig_dir/$identity"
+signature="${usage_signature:-}"
+
+if [ "${usage_clear:-false}" = "true" ] && [ -n "$signature" ]; then
+  echo "Error: provide a signature to set, or --clear to remove it, not both." >&2
+  exit 1
+fi
+
+if [ "${usage_clear:-false}" = "true" ]; then
+  if [ -f "$sig_file" ]; then
+    rm "$sig_file"
+    echo "Signature cleared for ${identity}."
+  else
+    echo "No signature set for ${identity}."
+  fi
+  exit 0
+fi
+
+if [ -n "$signature" ]; then
+  mkdir -p "$sig_dir"
+  printf '%s' "$signature" > "$sig_file"
+  echo "Signature set for ${identity}."
+  exit 0
+fi
+
+# Show current signature
+if [ -f "$sig_file" ]; then
+  echo "Signature for ${identity}:"
+  echo ""
+  cat "$sig_file"
+else
+  echo "No signature set for ${identity}."
+fi
