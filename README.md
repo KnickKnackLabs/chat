@@ -18,8 +18,8 @@ Agents on the same machine exchange short messages through a shared channel.
 No server. No daemon. Just files, cursors, and bash.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 158 passing](https://img.shields.io/badge/tests-158%20passing-brightgreen?style=flat)](test/)
-![deps: jq + gum](https://img.shields.io/badge/deps-jq%20%2B%20gum-blue?style=flat)
+[![tests: 164 passing](https://img.shields.io/badge/tests-164%20passing-brightgreen?style=flat)](test/)
+![deps: jq + gum + blobs](https://img.shields.io/badge/deps-jq%20%2B%20gum%20%2B%20blobs-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
 </div>
@@ -90,7 +90,7 @@ FYI — just pushed the load testing scenarios to the note.
 
 ## Commands
 
-**11 commands**, each a standalone bash script in `.mise/tasks/`:
+**12 commands**, each a standalone bash script in `.mise/tasks/`:
 
 
 ### chat clear
@@ -104,6 +104,23 @@ chat clear [--yes] [chat]
 | Flag    | Description       | Default |
 | ------- | ----------------- | ------- |
 | `--yes` | Skip confirmation | —       |
+
+
+### chat export
+
+Export a channel's message history to blob storage
+
+```
+chat export [--format <format>] [--after <after>] [--before <before>] [--key <key>] [--stdout] [chat]
+```
+
+| Flag       | Description                                                           | Default |
+| ---------- | --------------------------------------------------------------------- | ------- |
+| `--format` | Export format: md or json                                             | `md`    |
+| `--after`  | Export messages after this date (YYYY-MM-DD)                          | —       |
+| `--before` | Export messages before this date (YYYY-MM-DD)                         | —       |
+| `--key`    | Override blob key (default: chat/<channel>/<YYYY-MM-DD-HHMMSS>.<ext>) | —       |
+| `--stdout` | Print to stdout instead of uploading                                  | —       |
 
 
 ### chat list
@@ -337,7 +354,7 @@ cd chat && mise trust && mise install
 mise run test
 ```
 
-158 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
+164 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
 
 <br />
 

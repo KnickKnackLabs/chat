@@ -18,6 +18,9 @@ setup() {
   unset CHAT_IDENTITY
   unset CHAT_CHANNEL
   unset CHAT_CALLER_PWD
+  unset B2_ALIAS
+  unset B2_BUCKET
+  unset BLOBS
 
   source "$CHAT_REPO_ROOT/lib/chat.sh"
   chat_resolve "test-chat"
@@ -52,6 +55,25 @@ send_message() {
 mark_read() {
   local agent="$1"
   chat_set_cursor "$agent"
+}
+
+# Helper: install a mock blobs command for upload-path tests.
+_setup_mock_blobs() {
+  export BLOBS_LOG="$BATS_TEST_TMPDIR/blobs.log"
+  export BLOBS_STDIN="$BATS_TEST_TMPDIR/blobs.stdin"
+  export BLOBS="$BATS_TEST_TMPDIR/blobs"
+  cat > "$BLOBS" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >> "$BLOBS_LOG"
+if [ "$1" = "put" ]; then
+  cat > "$BLOBS_STDIN"
+  exit 0
+fi
+echo "unexpected blobs invocation: $*" >&2
+exit 1
+EOF
+  chmod +x "$BLOBS"
 }
 
 # Shim: call chat tasks like real CLI usage

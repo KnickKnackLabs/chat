@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from parse import parse_messages, TIMESTAMP_FMT
+from parse import format_message, parse_header, parse_messages, TIMESTAMP_FMT
 
 
 def parse_date(s: str) -> datetime:
@@ -34,6 +34,7 @@ def main():
     parser.add_argument("--before")
     parser.add_argument("--last", type=int)
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--markdown", action="store_true")
     parser.add_argument("--id", action="store_true")
     args = parser.parse_args()
 
@@ -59,6 +60,14 @@ def main():
         messages = [m for m in messages if m.timestamp <= before]
     if args.last:
         messages = messages[-args.last:]
+
+    if args.markdown:
+        header = parse_header(args.chat_file)
+        if header:
+            print(header.rstrip())
+        for msg in messages:
+            print(format_message(msg))
+        return
 
     if args.json:
         output = []
