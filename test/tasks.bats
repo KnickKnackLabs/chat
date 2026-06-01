@@ -217,10 +217,29 @@ load test_helper
   # bob sends a message alice hasn't read
   send_message "bob" "unread msg"
 
-  # alice tries to send — guard should block
+  # alice tries to send — guard should block and show the unread message inline
   run chat send --as alice --chat test-chat "blocked"
   [ "$status" -ne 0 ]
-  [[ "$output" == *"unread"* ]]
+  [[ "$output" == *"Aborted: you have 1 unread message(s) in test-chat."* ]]
+  [[ "$output" == *"unread msg"* ]]
+  [[ "$output" == *"To send anyway, use: chat send --force"* ]]
+}
+
+@test "task send: guard preview omits sender's own unread messages" {
+  send_message "alice" "setup"
+  mark_read "alice"
+
+  send_message "bob" "blocking msg"
+  send_message "alice" "own one"
+  send_message "alice" "own two"
+  send_message "alice" "own three"
+
+  run chat send --as alice --chat test-chat "blocked"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"blocking msg"* ]]
+  [[ "$output" != *"own one"* ]]
+  [[ "$output" != *"own two"* ]]
+  [[ "$output" != *"own three"* ]]
 }
 
 @test "task send: --force bypasses unread guard" {
@@ -746,6 +765,13 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
   run chat cursor:clear no-such-channel --as alice
   [ "$status" -ne 0 ]
   [[ "$output" == *"does not exist"* ]]
+}
+
+@test "task cursor:clear: help examples use the actual task name" {
+  run chat cursor:clear --help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"chat cursor:clear --as alice"* ]]
+  [[ "$output" != *"chat cursor clear"* ]]
 }
 
 @test "task send: creates channel that did not exist" {

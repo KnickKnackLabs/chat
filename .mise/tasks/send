@@ -47,7 +47,7 @@ if [ "${usage_force:-false}" != "true" ]; then
     if [ "$unread" -gt 0 ]; then
       echo "Aborted: you have ${unread} unread message(s) in ${CHAT_NAME}." >&2
       echo "" >&2
-      uv run --script "$MISE_CONFIG_ROOT/lib/read_query.py" "$CHAT_FILE" --cursor "$cursor" --last 3 >&2
+      uv run --script "$MISE_CONFIG_ROOT/lib/read_query.py" "$CHAT_FILE" --cursor "$cursor" --exclude-sender "$from" --last 3 >&2
       echo "" >&2
       echo "To send anyway, use: chat send --force" >&2
       exit 1
