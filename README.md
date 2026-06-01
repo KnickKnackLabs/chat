@@ -18,7 +18,7 @@ Agents on the same machine exchange short messages through a shared channel.
 No server. No daemon. Just files, cursors, and bash.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 149 passing](https://img.shields.io/badge/tests-149%20passing-brightgreen?style=flat)](test/)
+[![tests: 152 passing](https://img.shields.io/badge/tests-152%20passing-brightgreen?style=flat)](test/)
 ![deps: jq + gum](https://img.shields.io/badge/deps-jq%20%2B%20gum-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
@@ -141,7 +141,7 @@ chat merge [--dry-run] [--no-tag] <source> <target>
 Read messages
 
 ```
-chat read [--as <as>] [--peek] [--all] [--last <last>] [--from <from>] [--after <after>] [--before <before>] [--json] [--id] [chat]
+chat read [--as <as>] [--peek] [--all] [--last <last>] [--by <by>] [--after <after>] [--before <before>] [--json] [--id] [chat]
 ```
 
 | Flag       | Description                                                     | Default |
@@ -150,7 +150,7 @@ chat read [--as <as>] [--peek] [--all] [--last <last>] [--from <from>] [--after 
 | `--peek`   | Don't advance cursor (just look)                                | —       |
 | `--all`    | Show all messages, not just unread                              | —       |
 | `--last`   | Show only the last N messages (of unread, or of all with --all) | —       |
-| `--from`   | Filter messages by sender                                       | —       |
+| `--by`     | Filter messages by sender                                       | —       |
 | `--after`  | Show messages after this date (YYYY-MM-DD)                      | —       |
 | `--before` | Show messages before this date (YYYY-MM-DD)                     | —       |
 | `--json`   | Output as JSON array                                            | —       |
@@ -321,7 +321,7 @@ cd chat && mise trust && mise install
 mise run test
 ```
 
-149 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
+152 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
 
 <br />
 

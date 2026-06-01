@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 #MISE description="Read messages"
-#USAGE arg "[chat]" help="Chat name (default: $CHAT_CHANNEL or default)"
-#USAGE flag "--as <as>" help="Your identity (default: $CHAT_IDENTITY)"
-#USAGE flag "--peek" help="Don't advance cursor (just look)"
-#USAGE flag "--all" help="Show all messages, not just unread"
-#USAGE flag "--last <last>" help="Show only the last N messages (of unread, or of all with --all)"
-#USAGE flag "--from <from>" help="Filter messages by sender"
-#USAGE flag "--after <after>" help="Show messages after this date (YYYY-MM-DD)"
-#USAGE flag "--before <before>" help="Show messages before this date (YYYY-MM-DD)"
-#USAGE flag "--json" help="Output as JSON array"
-#USAGE flag "--id" help="Include message IDs in JSON output"
+#USAGE arg "[chat]" help="Chat name (default: $CHAT_CHANNEL or default)" default=""
+#USAGE flag "--as <as>" help="Your identity (default: $CHAT_IDENTITY)" default=""
+#USAGE flag "--peek" help="Don't advance cursor (just look)" default=#false
+#USAGE flag "--all" help="Show all messages, not just unread" default=#false
+#USAGE flag "--last <last>" help="Show only the last N messages (of unread, or of all with --all)" default=""
+#USAGE flag "--by <by>" help="Filter messages by sender" default=""
+#USAGE flag "--after <after>" help="Show messages after this date (YYYY-MM-DD)" default=""
+#USAGE flag "--before <before>" help="Show messages before this date (YYYY-MM-DD)" default=""
+#USAGE flag "--json" help="Output as JSON array" default=#false
+#USAGE flag "--id" help="Include message IDs in JSON output" default=#false
 #USAGE example "chat read --as alice" header="Read new messages as alice"
 #USAGE example "chat read --all --last 10" header="Show the last 10 messages"
-#USAGE example "chat read --from bob" header="Filter messages from bob"
+#USAGE example "chat read --by bob" header="Filter messages by bob"
 #USAGE example "chat read --after 2025-01-01" header="Show messages after a date"
 #USAGE example "chat read --json --as alice" header="Output new messages as JSON"
 set -eo pipefail
@@ -28,7 +28,7 @@ identity="$CHAT_IDENTITY"
 peek="${usage_peek:-false}"
 show_all="${usage_all:-false}"
 last_n="${usage_last:-}"
-sender="${usage_from:-}"
+sender="${usage_by:-}"
 after="${usage_after:-}"
 before="${usage_before:-}"
 as_json="${usage_json:-false}"
@@ -55,7 +55,7 @@ if [ "$as_json" = "true" ] || [ -n "$after" ] || [ -n "$before" ]; then
   fi
 
   py_args=("$CHAT_FILE" --cursor "$cursor_line")
-  [ -n "$sender" ] && py_args+=(--from "$sender")
+  [ -n "$sender" ] && py_args+=(--by "$sender")
   [ -n "$after" ] && py_args+=(--after "$after")
   [ -n "$before" ] && py_args+=(--before "$before")
   [ -n "$last_n" ] && py_args+=(--last "$last_n")

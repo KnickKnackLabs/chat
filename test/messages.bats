@@ -41,10 +41,10 @@ _send_to() {
   echo "$json" | jq '.[0].body' | grep -q "json test"
 }
 
-@test "task read --json: --from filters by sender" {
+@test "task read --json: --by filters by sender" {
   send_message "alice" "msg from alice"
   send_message "bob" "msg from bob"
-  run chat read test-chat --all --json --from alice
+  run chat read test-chat --all --json --by alice
   [ "$status" -eq 0 ]
   local json
   json=$(echo "$output" | sed -n '/^\[$/,$ p')

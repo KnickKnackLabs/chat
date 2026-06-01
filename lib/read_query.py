@@ -28,7 +28,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("chat_file", type=Path)
     parser.add_argument("--cursor", type=int, default=0)
-    parser.add_argument("--from", dest="sender")
+    parser.add_argument("--by", dest="sender")
     parser.add_argument("--exclude-sender")
     parser.add_argument("--after")
     parser.add_argument("--before")
