@@ -35,6 +35,7 @@ def main():
     parser.add_argument("--last", type=int)
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--markdown", action="store_true")
+    parser.add_argument("--no-header", dest="no_header", action="store_true")
     parser.add_argument("--id", action="store_true")
     args = parser.parse_args()
 
@@ -44,9 +45,9 @@ def main():
 
     messages = parse_messages(args.chat_file)
 
-    # Filter by cursor (unread mode)
+    # Filter by cursor (unread mode) — cursor is a 1-based message index
     if args.cursor > 0:
-        messages = [m for m in messages if m.line_number > args.cursor]
+        messages = [m for m in messages if m.message_index > args.cursor]
 
     if args.sender:
         messages = [m for m in messages if m.sender.lower() == args.sender.lower()]
@@ -62,10 +63,12 @@ def main():
         messages = messages[-args.last:]
 
     if args.markdown:
-        header = parse_header(args.chat_file)
-        if header:
-            print(header.rstrip())
+        if not args.no_header:
+            header = parse_header(args.chat_file)
+            if header:
+                print(header.rstrip())
         for msg in messages:
+            print()
             print(format_message(msg))
         return
 
@@ -77,7 +80,7 @@ def main():
                 "timestamp": msg.timestamp_str,
                 "body": msg.body,
                 "preview": msg.preview,
-                "line": msg.line_number,
+                "index": msg.message_index,
             }
             if args.id:
                 entry["id"] = msg.id

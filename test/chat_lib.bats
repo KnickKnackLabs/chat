@@ -181,7 +181,7 @@ load test_helper
   local cursor
   cursor=$(chat_get_cursor "alice")
   local total
-  total=$(chat_line_count)
+  total=$(chat_message_count)
   [ "$cursor" = "$total" ]
 }
 
@@ -253,7 +253,7 @@ load test_helper
 
 @test "append: message has correct header format" {
   send_message "alice" "test message"
-  grep -q "^### alice — " "$CHAT_FILE"
+  grep -q "^from: alice$" "$CHAT_FILE"
 }
 
 @test "append: message body is preserved" {
@@ -266,7 +266,7 @@ load test_helper
   send_message "bob" "msg2"
   send_message "alice" "msg3"
   local count
-  count=$(grep -c "^### " "$CHAT_FILE")
+  count=$(grep -c "^from: " "$CHAT_FILE")
   [ "$count" -eq 3 ]
 }
 
@@ -280,7 +280,7 @@ load test_helper
 
 @test "append: empty body still creates header" {
   send_message "alice" ""
-  grep -q "^### alice — " "$CHAT_FILE"
+  grep -q "^from: alice$" "$CHAT_FILE"
 }
 
 # ============================================================================
@@ -305,7 +305,7 @@ load test_helper
   mark_read "alice"
   send_message "bob" "hello"
   run chat_new_messages "alice"
-  [[ "$output" == *"### bob"* ]]
+  [[ "$output" == *"from: bob"* ]]
 }
 
 @test "new_messages: excludes already-read content" {
@@ -362,8 +362,8 @@ load test_helper
 
 @test "count_new: 0 for new agent with no messages after header" {
   # New agent, cursor=0, but file only has the init header
-  # chat_count_new with cursor 0 will count ### headers in the whole file
-  # Since init doesn't add ### headers, count should be 0
+  # chat_count_new with cursor 0 counts message blocks in the whole file
+  # Since init doesn't add any messages, count should be 0
   local count
   count=$(chat_count_new "newbie")
   [ "$count" = "0" ]

@@ -30,17 +30,17 @@ if [ "${usage_forever:-false}" = "true" ]; then
   timeout=0
 fi
 
-# Use cursor (last-read position) instead of current line count.
+# Use cursor (last-read message index) instead of current message count.
 # This way we catch messages sent BEFORE wait started but AFTER
 # the agent's last `read`.
 if [ -n "$agent" ]; then
   cursor=$(chat_get_cursor "$agent")
 else
-  cursor=$(chat_line_count)
+  cursor=$(chat_message_count)
 fi
-total=$(chat_line_count)
+total=$(chat_message_count)
 
-# Edge case: cursor beyond file length (e.g., chat was truncated/cleared)
+# Edge case: cursor beyond message count (e.g., chat was truncated/cleared)
 if [ "$cursor" -gt "$total" ]; then
   cursor="$total"
 fi
@@ -52,50 +52,20 @@ if [ -n "$agent" ] && [ "$cursor" -eq 0 ]; then
   chat_set_cursor "$agent"
 fi
 
-# Count messages from senders other than the given agent.
-# Usage: _count_other_senders "content" "agent_name"
-# Prints the count to stdout.
-_count_other_senders() {
-  local content="$1"
-  local self="$2"
-  local headers
-  headers=$(echo "$content" | grep '^### ') || headers=""
-  [ -z "$headers" ] && { echo "0"; return; }
-  if [ -z "$self" ]; then
-    # no identity → count all messages
-    echo "$headers" | wc -l | tr -d ' '
-    return
-  fi
-  local count=0
-  while IFS= read -r header; do
-    local sender
-    sender=$(echo "$header" | sed -E 's/^### (.+) — .+$/\1/')
-    if [ "$sender" != "$self" ]; then
-      count=$((count + 1))
-    fi
-  done <<< "$headers"
-  echo "$count"
-}
-
-# Check whether content has enough messages from others to meet the batch threshold.
-# Usage: _has_enough_messages "content" "agent_name" batch_count
-# Returns 0 if count >= batch, 1 otherwise.
+# Check whether there are enough new messages from others to meet the batch
+# threshold. Usage: _has_enough_messages cursor agent_name batch_count
 _has_enough_messages() {
-  local content="$1"
+  local since="$1"
   local self="$2"
   local threshold="$3"
-  local count
-  count=$(_count_other_senders "$content" "$self")
-  [ "$count" -ge "$threshold" ]
+  [ "$(_chat_count_after "$since" "$self")" -ge "$threshold" ]
 }
 
 # Check if there are already unread messages before we start polling
 if [ "$cursor" -lt "$total" ]; then
-  new_content=$(tail -n +"$((cursor + 1))" "$CHAT_FILE")
-
-  if _has_enough_messages "$new_content" "$agent" "$batch"; then
+  if _has_enough_messages "$cursor" "$agent" "$batch"; then
     echo "New messages:"
-    echo "$new_content" | chat_format_messages
+    _chat_messages_after "$cursor" | chat_format_messages
     [ -n "$agent" ] && chat_set_cursor "$agent"
     exit 0
   fi
@@ -103,7 +73,7 @@ if [ "$cursor" -lt "$total" ]; then
   # Not enough messages yet (or only own) — advance cursor past own and continue
   # Only advance if there are no other-sender messages at all (pure own messages).
   # If there are some but not enough, keep cursor to accumulate toward batch.
-  if [ "$(_count_other_senders "$new_content" "$agent")" -eq 0 ]; then
+  if [ "$(_chat_count_after "$cursor" "$agent")" -eq 0 ]; then
     [ -n "$agent" ] && chat_set_cursor "$agent"
     cursor="$total"
   fi
@@ -119,15 +89,13 @@ else
 fi
 
 while true; do
-  current_lines=$(chat_line_count)
+  current_count=$(chat_message_count)
 
-  if [ "$current_lines" -gt "$cursor" ]; then
-    new_content=$(tail -n +"$((cursor + 1))" "$CHAT_FILE")
-
-    if _has_enough_messages "$new_content" "$agent" "$batch"; then
+  if [ "$current_count" -gt "$cursor" ]; then
+    if _has_enough_messages "$cursor" "$agent" "$batch"; then
       echo ""
       echo "New messages:"
-      echo "$new_content" | chat_format_messages
+      _chat_messages_after "$cursor" | chat_format_messages
       [ -n "$agent" ] && chat_set_cursor "$agent"
       exit 0
     fi

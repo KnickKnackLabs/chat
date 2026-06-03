@@ -14,14 +14,14 @@ chat_require_file
 ARCHIVE_DIR="$CHAT_DATA_DIR/archive"
 mkdir -p "$ARCHIVE_DIR"
 
-line_count=$(chat_line_count)
-if [ "$line_count" -le 6 ]; then
+msg_count=$(chat_message_count)
+if [ "$msg_count" -eq 0 ]; then
   echo "Chat ${CHAT_NAME} is already clean (only header). Nothing to archive."
   exit 0
 fi
 
 if [ "${usage_yes:-}" != "true" ]; then
-  echo "This will archive ${CHAT_NAME} ($line_count lines) and reset it."
+  echo "This will archive ${CHAT_NAME} (${msg_count} message(s)) and reset it."
   echo -n "Continue? [y/N] "
   read -r confirm
   if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then

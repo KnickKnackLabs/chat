@@ -81,7 +81,34 @@ chat_line_count() {
   wc -l < "$CHAT_FILE" | tr -d ' '
 }
 
-# Get the cursor (last-read line) for an agent
+# Count the number of messages in a chat file (defaults to $CHAT_FILE).
+# One `from:` frontmatter line == one message.
+chat_message_count() {
+  local file="${1:-$CHAT_FILE}"
+  local c
+  c=$(grep -c '^from: ' "$file" 2>/dev/null) || c=0
+  printf '%s' "$c"
+}
+
+# Value of a frontmatter field on the last message of a file ("" if none).
+# Usage: chat_last_field <file> <field>   (field is one of from|ts|to|id)
+chat_last_field() {
+  local file="$1" field="$2"
+  local line
+  line=$(grep "^${field}: " "$file" 2>/dev/null | tail -1) || line=""
+  printf '%s' "${line#"$field": }"
+}
+
+# Unique, lowercase, sorted list of senders in a file (one per line).
+chat_participants() {
+  local file="$1"
+  local froms
+  froms=$(grep '^from: ' "$file" 2>/dev/null) || froms=""
+  [ -z "$froms" ] && return 0
+  printf '%s\n' "$froms" | sed 's/^from: //' | tr '[:upper:]' '[:lower:]' | sort -u
+}
+
+# Get the cursor (index of the last-read message) for an agent
 chat_get_cursor() {
   local agent="$1"
   local cursor_file="$CHAT_CURSOR_DIR/$agent"
@@ -92,7 +119,7 @@ chat_get_cursor() {
   fi
 }
 
-# Set the cursor for an agent to current line count
+# Set the cursor for an agent to the current message count
 chat_set_cursor() {
   local agent="$1"
   if [ -z "$agent" ]; then
@@ -101,7 +128,7 @@ chat_set_cursor() {
   fi
   local cursor_file="$CHAT_CURSOR_DIR/$agent"
   local count previous
-  count=$(chat_line_count)
+  count=$(chat_message_count)
   if [ -f "$cursor_file" ]; then
     previous=$(cat "$cursor_file")
     if [ "$previous" != "$count" ]; then
@@ -156,55 +183,78 @@ chat_relative_time() {
   fi
 }
 
-# Append a message to the chat file
+# Append a message to the chat file as a frontmatter block.
+# Usage: chat_append <from> <message> [to]
 chat_append() {
   local from="$1"
   local message="$2"
-  local ts
+  local to="${3:-}"
+  local ts id
   ts=$(chat_timestamp)
+  id=$(( $(chat_message_count) + 1 ))
 
-  cat >> "$CHAT_FILE" <<EOF
-
-### ${from} — ${ts}
-
-${message}
-EOF
+  {
+    printf '\n%s\n' '---'
+    printf 'id: %s\n' "$id"
+    printf 'from: %s\n' "$from"
+    printf 'ts: %s\n' "$ts"
+    [ -n "$to" ] && printf 'to: %s\n' "$to"
+    printf '%s\n' '---'
+    printf '%s\n' "$message"
+  } >> "$CHAT_FILE"
 }
 
-# Get new messages since cursor for an agent
+# Emit raw frontmatter blocks for messages with index > the given cursor.
+# A block opens on a `---` immediately followed by an `id:` line; once we
+# reach the first unread block we print from its opening `---` to EOF.
+_chat_messages_after() {
+  local cursor="$1"
+  awk -v cur="$cursor" '
+    /^id: / {
+      idx++
+      if (idx == cur + 1) { started = 1; if (prev == "---") print prev }
+    }
+    started { print }
+    { prev = $0 }
+  ' "$CHAT_FILE"
+}
+
+# Count messages with index > the given cursor, excluding sender `self`
+# (pass an empty self to count everyone).
+_chat_count_after() {
+  local cursor="$1"
+  local self="$2"
+  awk -v cur="$cursor" -v self="$self" '
+    /^from: / {
+      idx++
+      sender = substr($0, 7)
+      if (idx > cur && sender != self) count++
+    }
+    END { print count + 0 }
+  ' "$CHAT_FILE"
+}
+
+# Get new messages (raw frontmatter blocks) since an agent's cursor.
+# Returns 1 (and no output) when there is nothing new.
 chat_new_messages() {
   local agent="$1"
-  local cursor
+  local cursor total
   cursor=$(chat_get_cursor "$agent")
-  local total
-  total=$(chat_line_count)
+  total=$(chat_message_count)
 
   if [ "$cursor" -ge "$total" ]; then
     return 1  # no new messages
   fi
 
-  tail -n +"$((cursor + 1))" "$CHAT_FILE"
+  _chat_messages_after "$cursor"
   return 0
 }
 
-# Count new message blocks since cursor
+# Count new messages since cursor, excluding the agent's own messages —
+# your own unread messages shouldn't block you from sending.
 chat_count_new() {
   local agent="$1"
-  local cursor
-  cursor=$(chat_get_cursor "$agent")
-  local total
-  total=$(chat_line_count)
-
-  if [ "$cursor" -ge "$total" ]; then
-    echo "0"
-    return
-  fi
-
-  # Count message headers from *other* agents only — your own unread
-  # messages shouldn't block you from sending.
-  local count
-  count=$(tail -n +"$((cursor + 1))" "$CHAT_FILE" | grep '^### ' | grep -cv "^### ${agent} ") || count=0
-  echo "$count"
+  _chat_count_after "$(chat_get_cursor "$agent")" "$agent"
 }
 
 # List all available chats
@@ -225,47 +275,53 @@ _chat_trim_trailing_newlines() {
   printf '%s' "$text"
 }
 
-# Format a message block for display using gum
-# Usage: chat_format_message "header_line" "body_text"
+# Render frontmatter-block messages (from stdin) for display using gum.
+# Falls back to plain passthrough when gum is unavailable.
 chat_format_messages() {
   if ! command -v gum &>/dev/null; then
-    # Fallback: plain output
     cat
     return
   fi
 
-  local in_header=false
-  local header=""
-  local body=""
-  local first=true
+  local lines=()
+  mapfile -t lines
+  local n=${#lines[@]}
+  local i=0 first=true
 
-  while IFS= read -r line || [ -n "$line" ]; do
-    if [[ "$line" =~ ^###\ (.+)\ —\ (.+)$ ]]; then
-      # Save matches before any regex that could clobber BASH_REMATCH
-      local match_name="${BASH_REMATCH[1]}"
-      local match_time="${BASH_REMATCH[2]}"
-      # Print previous message if any
-      if [ -n "$header" ]; then
-        body=$(_chat_trim_trailing_newlines "$body")
-        _chat_render_block "$header" "$body" "$first"
-        first=false
-      fi
-      header="${match_name}  ${match_time}"
-      body=""
-      in_header=true
-    elif [ "$in_header" = true ]; then
-      # Accumulate body (skip leading blank line after header)
-      if [ -n "$body" ] || [ -n "$line" ]; then
-        body+="${body:+$'\n'}${line}"
-      fi
-    fi
-  done
+  # A block opens on a `---` whose next line is an id/from/ts field.
+  _is_open() {
+    [ "${lines[$1]}" = "---" ] && [ $(($1 + 1)) -lt "$n" ] \
+      && [[ "${lines[$(($1 + 1))]}" =~ ^(id|from|ts): ]]
+  }
 
-  # Render last message
-  if [ -n "$header" ]; then
+  # Skip the channel header — advance to the first message block.
+  while [ "$i" -lt "$n" ] && ! _is_open "$i"; do i=$((i + 1)); done
+
+  while [ "$i" -lt "$n" ]; do
+    # lines[i] is the opening `---`; read frontmatter until the closing `---`.
+    i=$((i + 1))
+    local from="" ts=""
+    while [ "$i" -lt "$n" ] && [ "${lines[$i]}" != "---" ]; do
+      case "${lines[$i]}" in
+        "from: "*) from="${lines[$i]#from: }" ;;
+        "ts: "*)   ts="${lines[$i]#ts: }" ;;
+      esac
+      i=$((i + 1))
+    done
+    i=$((i + 1))  # skip the closing `---`
+
+    # Body runs until the next block opens (or EOF).
+    local body=""
+    while [ "$i" -lt "$n" ] && ! _is_open "$i"; do
+      if [ -n "$body" ] || [ -n "${lines[$i]}" ]; then
+        body+="${body:+$'\n'}${lines[$i]}"
+      fi
+      i=$((i + 1))
+    done
     body=$(_chat_trim_trailing_newlines "$body")
-    _chat_render_block "$header" "$body" "$first"
-  fi
+    _chat_render_block "${from}  ${ts}" "$body" "$first"
+    first=false
+  done
 }
 
 # Render a single message block with gum

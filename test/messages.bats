@@ -61,7 +61,9 @@ _send_to() {
   local json id
   json=$(echo "$output" | sed -n '/^\[$/,$ p')
   id=$(echo "$json" | jq -r '.[0].id')
-  [ ${#id} -eq 12 ]
+  # ids are now sequential integers from the frontmatter `id:` field
+  [[ "$id" =~ ^[0-9]+$ ]]
+  [ "$id" = "1" ]
 }
 
 @test "task read --json: empty channel outputs empty array" {

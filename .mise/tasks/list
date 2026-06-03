@@ -24,14 +24,6 @@ if [ "$unread_only" = "true" ] && [ "$has_identity" != "true" ]; then
   exit 1
 fi
 
-# Safe grep -c that doesn't fail on 0 matches.
-# grep -c always prints a count to stdout; exit 1 means "no matches"
-# (the count is still 0). We accept exit 1 but propagate real errors
-# (exit ≥2, e.g. unreadable file).
-count_matches() {
-  grep -c "$@" || [ $? -eq 1 ]
-}
-
 # Count unread for a channel, given identity. Returns 0 if no identity.
 _unread_for() {
   local chan="$1"
@@ -62,7 +54,7 @@ if [ "${usage_json:-false}" = "true" ]; then
   for f in "$CHAT_DATA_DIR"/*.md; do
     [ -f "$f" ] || continue
     name=$(basename "$f" .md)
-    msgs=$(count_matches '^### ' "$f" 2>/dev/null)
+    msgs=$(chat_message_count "$f")
 
     # Skip empty channels unless --all
     if [ "$show_all" != "true" ] && [ "$msgs" -eq 0 ]; then
@@ -82,14 +74,9 @@ if [ "${usage_json:-false}" = "true" ]; then
     is_current=false
     [ "$name" = "$current" ] && is_current=true
 
-    # Extract last message header: "sender — YYYY-MM-DD HH:MM"
-    last_header=$(grep '^### ' "$f" 2>/dev/null | tail -1 | sed 's/^### //') || last_header=""
-    last_sender=""
-    last_time=""
-    if [ -n "$last_header" ]; then
-      last_sender=$(echo "$last_header" | sed -E 's/ — .*//')
-      last_time=$(echo "$last_header" | sed -E 's/.* — //')
-    fi
+    # Extract last message sender and timestamp from frontmatter
+    last_sender=$(chat_last_field "$f" from)
+    last_time=$(chat_last_field "$f" ts)
 
     if [ "$has_identity" = "true" ]; then
       json_objects+=$(jq -n --arg name "$name" --argjson current "$is_current" \
@@ -124,7 +111,7 @@ rows_with_epoch=""
 for f in "$CHAT_DATA_DIR"/*.md; do
   [ -f "$f" ] || continue
   name=$(basename "$f" .md)
-  msgs=$(count_matches '^### ' "$f" 2>/dev/null)
+  msgs=$(chat_message_count "$f")
 
   # Skip empty channels unless --all
   if [ "$show_all" != "true" ] && [ "$msgs" -eq 0 ]; then
@@ -141,10 +128,9 @@ for f in "$CHAT_DATA_DIR"/*.md; do
     continue
   fi
 
-  last_header=$(grep '^### ' "$f" 2>/dev/null | tail -1 | sed 's/^### //') || last_header=""
+  last_time=$(chat_last_field "$f" ts)
   epoch=0
-  if [ -n "$last_header" ]; then
-    last_time=$(echo "$last_header" | sed -E 's/.* — //')
+  if [ -n "$last_time" ]; then
     last=$(chat_relative_time "$last_time")
     epoch=$(_chat_to_epoch "$last_time" 2>/dev/null || echo 0)
   else

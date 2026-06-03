@@ -1,22 +1,55 @@
 """
 Chat message parser — structured access to chat markdown files.
 
-Parses the ### sender — YYYY-MM-DD HH:MM message format into
-Message objects with sender, timestamp, body, and metadata.
+Each message is a YAML-frontmatter block followed by a markdown body:
+
+    ---
+    id: 1
+    from: alice
+    ts: 2026-03-25 12:05
+    to: bob          # optional
+    src: ops         # optional (origin channel, for merges)
+    ---
+    message body, which may span
+    multiple lines.
+
+Disambiguation rule: a line consisting solely of `---` begins a new
+message only if the immediately following line matches `^(id|from|ts):`.
+Otherwise the `---` is treated as body content, so message bodies may
+contain horizontal rules without confusing the parser.
+
+Cursors address messages by **index** (1-based position in the file),
+not by line number — editing a message body never shifts another
+message's index.
 """
 
-import hashlib
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 
-MESSAGE_HEADER_RE = re.compile(
-    r"^### (.+?) — (\d{4}-\d{2}-\d{2} \d{2}:\d{2})(.*)$"
-)
 TIMESTAMP_FMT = "%Y-%m-%d %H:%M"
+# Accepted on-disk timestamp layouts (first one is canonical for output).
+_TS_FORMATS = (TIMESTAMP_FMT, "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S")
+
+DELIM = "---"
+# A `---` opens a frontmatter block only when the next line starts with one
+# of these keys — this is the body/horizontal-rule disambiguation rule.
+FM_OPEN_KEY_RE = re.compile(r"^(id|from|ts):\s")
+# A single "key: value" frontmatter line.
+FM_FIELD_RE = re.compile(r"^([A-Za-z_][\w-]*):\s?(.*)$")
+
+
+def _parse_timestamp(raw: str) -> datetime:
+    for fmt in _TS_FORMATS:
+        try:
+            return datetime.strptime(raw.strip(), fmt)
+        except ValueError:
+            continue
+    # Last resort: ISO parsing (handles offsets / microseconds).
+    return datetime.fromisoformat(raw.strip())
 
 
 @dataclass
@@ -24,15 +57,10 @@ class Message:
     sender: str
     timestamp: datetime
     body: str
-    line_number: int
-    source: Optional[str] = None  # origin channel (for merges)
-
-    @property
-    def id(self) -> str:
-        """Stable message ID — hash of sender + timestamp + first body line."""
-        first_line = self.body.strip().split("\n")[0] if self.body.strip() else ""
-        key = f"{self.sender}|{self.timestamp.isoformat()}|{first_line}"
-        return hashlib.sha256(key.encode()).hexdigest()[:12]
+    message_index: int           # 1-based position in the file
+    id: Optional[int] = None     # explicit `id:` field; defaults to index
+    to: Optional[str] = None     # optional recipient
+    source: Optional[str] = None # origin channel (for merges)
 
     @property
     def preview(self) -> str:
@@ -47,74 +75,88 @@ class Message:
         return self.timestamp.strftime(TIMESTAMP_FMT)
 
 
-def parse_header(filepath: Path) -> Optional[str]:
-    """Extract the chat file header (everything before the first message)."""
-    text = filepath.read_text()
-    # Find first message header
-    for i, line in enumerate(text.split("\n")):
-        if MESSAGE_HEADER_RE.match(line):
-            return "\n".join(text.split("\n")[:i])
-    return text  # no messages — entire file is header
+def _is_block_open(lines: list[str], i: int) -> bool:
+    """True if lines[i] opens a frontmatter block (per the disambiguation rule)."""
+    return (
+        lines[i].strip() == DELIM
+        and i + 1 < len(lines)
+        and bool(FM_OPEN_KEY_RE.match(lines[i + 1]))
+    )
+
+
+def _first_block_index(lines: list[str]) -> Optional[int]:
+    for i in range(len(lines)):
+        if _is_block_open(lines, i):
+            return i
+    return None
+
+
+def parse_header(filepath: Path) -> str:
+    """Everything before the first message block (the channel preamble)."""
+    lines = filepath.read_text().split("\n")
+    start = _first_block_index(lines)
+    if start is None:
+        return filepath.read_text()  # no messages — whole file is header
+    return "\n".join(lines[:start])
 
 
 def parse_messages(filepath: Path, source: Optional[str] = None) -> list[Message]:
     """Parse a chat markdown file into a list of Message objects."""
-    messages = []
     lines = filepath.read_text().split("\n")
+    n = len(lines)
+    messages: list[Message] = []
 
-    current_sender = None
-    current_timestamp = None
-    current_body_lines: list[str] = []
-    current_line_number = 0
-    current_source = source
+    i = _first_block_index(lines)
+    if i is None:
+        return messages
 
-    for i, line in enumerate(lines, start=1):
-        match = MESSAGE_HEADER_RE.match(line)
-        if match:
-            # Save previous message
-            if current_sender is not None:
-                body = _clean_body(current_body_lines)
-                messages.append(Message(
-                    sender=current_sender,
-                    timestamp=current_timestamp,
-                    body=body,
-                    line_number=current_line_number,
-                    source=current_source,
-                ))
-            # Start new message
-            current_sender = match.group(1)
-            current_timestamp = datetime.strptime(match.group(2), TIMESTAMP_FMT)
-            # Preserve source tag from header suffix (e.g., "⟵ old-channel")
-            suffix = match.group(3).strip()
-            if suffix.startswith("\u27f5"):
-                current_source = suffix[1:].strip()
-            else:
-                current_source = source
-            current_body_lines = []
-            current_line_number = i
-        elif current_sender is not None:
-            current_body_lines.append(line)
+    index = 0
+    while i < n:
+        # lines[i] is a block-opening `---`
+        i += 1
+        fields: dict[str, str] = {}
+        while i < n and lines[i].strip() != DELIM:
+            m = FM_FIELD_RE.match(lines[i])
+            if m:
+                fields[m.group(1).lower()] = m.group(2).strip()
+            i += 1
+        i += 1  # skip the closing `---`
 
-    # Don't forget the last message
-    if current_sender is not None:
-        body = _clean_body(current_body_lines)
+        body_lines: list[str] = []
+        while i < n and not _is_block_open(lines, i):
+            body_lines.append(lines[i])
+            i += 1
+
+        index += 1
+        raw_id = fields.get("id")
+        try:
+            msg_id = int(raw_id) if raw_id is not None else index
+        except ValueError:
+            msg_id = index
+        ts_raw = fields.get("ts", "")
         messages.append(Message(
-            sender=current_sender,
-            timestamp=current_timestamp,
-            body=body,
-            line_number=current_line_number,
-            source=current_source,
+            sender=fields.get("from", ""),
+            timestamp=_parse_timestamp(ts_raw) if ts_raw else datetime.min,
+            body=_clean_body(body_lines),
+            message_index=index,
+            id=msg_id,
+            to=fields.get("to") or None,
+            source=fields.get("src") or source,
         ))
 
     return messages
 
 
 def format_message(msg: Message, tag_source: bool = False) -> str:
-    """Format a Message back into chat markdown."""
-    header = f"### {msg.sender} — {msg.timestamp_str}"
+    """Format a Message as an on-disk frontmatter block (no trailing newline)."""
+    head = [DELIM, f"id: {msg.id if msg.id is not None else msg.message_index}",
+            f"from: {msg.sender}", f"ts: {msg.timestamp_str}"]
+    if msg.to:
+        head.append(f"to: {msg.to}")
     if tag_source and msg.source:
-        header += f" \u27f5 {msg.source}"
-    return f"\n{header}\n\n{msg.body}"
+        head.append(f"src: {msg.source}")
+    head.append(DELIM)
+    return "\n".join(head) + "\n" + msg.body
 
 
 def merge_messages(
@@ -122,27 +164,20 @@ def merge_messages(
     tag_sources: bool = True,
 ) -> tuple[str, list[Message]]:
     """
-    Merge multiple channels into a single sorted message list.
+    Merge multiple channels into a single timestamp-sorted message list.
 
-    Args:
-        channels: mapping of channel_name -> filepath
-        tag_sources: if True, annotate messages with origin channel
-
-    Returns:
-        (header, sorted_messages) — header from the first channel
+    Returns (header, sorted_messages) — header taken from the first channel.
+    Fresh sequential ids are assigned at write time (see write_chat).
     """
     all_messages: list[Message] = []
-    header = None
+    header: Optional[str] = None
 
     for name, path in channels.items():
         if header is None:
             header = parse_header(path)
-        msgs = parse_messages(path, source=name)
-        all_messages.extend(msgs)
+        all_messages.extend(parse_messages(path, source=name))
 
-    # Stable sort by timestamp (preserves order within same timestamp)
     all_messages.sort(key=lambda m: m.timestamp)
-
     return header or "", all_messages
 
 
@@ -152,19 +187,20 @@ def write_chat(
     messages: list[Message],
     tag_sources: bool = True,
 ) -> None:
-    """Write a complete chat file from header + messages."""
+    """Write a complete chat file, assigning fresh sequential ids/indices."""
     parts = [header.rstrip()]
-    for msg in messages:
+    for i, msg in enumerate(messages, start=1):
+        msg.id = i
+        msg.message_index = i
+        parts.append("")  # blank line separator between blocks
         parts.append(format_message(msg, tag_source=tag_sources))
     filepath.write_text("\n".join(parts) + "\n")
 
 
 def _clean_body(lines: list[str]) -> str:
-    """Strip leading/trailing blank lines from message body."""
-    # Strip leading blank lines
+    """Strip leading/trailing blank lines from a message body."""
     while lines and not lines[0].strip():
         lines = lines[1:]
-    # Strip trailing blank lines
     while lines and not lines[-1].strip():
         lines = lines[:-1]
     return "\n".join(lines)

@@ -45,97 +45,37 @@ if [ -z "$identity" ]; then
   peek="true"
 fi
 
-# --- Advanced query path (Python) ---
-# Delegate to Python when we need date filtering or JSON output
-if [ "$as_json" = "true" ] || [ -n "$after" ] || [ -n "$before" ]; then
-  # Determine cursor offset for unread mode
-  cursor_line=0
-  if [ "$show_all" != "true" ] && [ -n "$identity" ]; then
-    cursor_line=$(chat_get_cursor "$identity")
-  fi
+# Cursor (message index) for unread mode; 0 means "from the start".
+cursor_idx=0
+if [ "$show_all" != "true" ] && [ -n "$identity" ]; then
+  cursor_idx=$(chat_get_cursor "$identity")
 
-  py_args=("$CHAT_FILE" --cursor "$cursor_line")
-  [ -n "$sender" ] && py_args+=(--by "$sender")
-  [ -n "$after" ] && py_args+=(--after "$after")
-  [ -n "$before" ] && py_args+=(--before "$before")
-  [ -n "$last_n" ] && py_args+=(--last "$last_n")
-  [ "$as_json" = "true" ] && py_args+=(--json)
-  [ "$show_ids" = "true" ] && py_args+=(--id)
-
-  uv run --script "$MISE_CONFIG_ROOT/lib/read_query.py" "${py_args[@]}"
-
-  # Advance cursor unless --peek
-  if [ "$peek" != "true" ] && [ -n "$identity" ]; then
-    chat_set_cursor "$identity"
-  fi
-  exit 0
-fi
-
-# --- Standard path (bash) ---
-
-filter_by_sender() {
-  if [ -z "$sender" ]; then
-    cat
-    return
-  fi
-  local in_match=false
-  while IFS= read -r line; do
-    if [[ "$line" =~ ^###\  ]]; then
-      if echo "$line" | grep -qi "^### ${sender} "; then
-        in_match=true
-      else
-        in_match=false
-      fi
-    fi
-    if [ "$in_match" = true ]; then echo "$line"; fi
-  done
-}
-
-limit_last_n() {
-  if [ -z "$last_n" ]; then
-    cat
-    return
-  fi
-  # Extract last N message blocks by finding ### headers
-  local input
-  input=$(cat)
-  local headers
-  headers=$(echo "$input" | grep -n '^### ') || headers=""
-  if [ -z "$headers" ]; then
-    echo "$input"
-    return
-  fi
-  local total_msgs
-  total_msgs=$(echo "$headers" | wc -l | tr -d ' ')
-  if [ "$total_msgs" -le "$last_n" ]; then
-    echo "$input"
-    return
-  fi
-  # Get the line number of the (total - last_n + 1)th header
-  local skip=$((total_msgs - last_n))
-  local start_line
-  start_line=$(echo "$headers" | tail -n +"$((skip + 1))" | head -1 | cut -d: -f1)
-  echo "$input" | tail -n +"$start_line"
-}
-
-if [ "$show_all" = "true" ]; then
-  content=$(tail -n +7 "$CHAT_FILE")
-  echo "$content" | filter_by_sender | limit_last_n | chat_format_messages
-else
-  count=$(chat_count_new "$identity")
-  if [ "$count" = "0" ]; then
+  # Friendly message when the inbox is empty (ignores your own messages).
+  if [ "$as_json" != "true" ] && [ "$(chat_count_new "$identity")" = "0" ]; then
     echo "No new messages in ${CHAT_NAME}."
-    if [ "$peek" != "true" ]; then
-      chat_set_cursor "$identity"
-    fi
+    [ "$peek" != "true" ] && chat_set_cursor "$identity"
     exit 0
   fi
-  content=$(chat_new_messages "$identity")
-  echo "$content" | filter_by_sender | limit_last_n | chat_format_messages
+fi
+
+# All formatting/filtering lives in read_query.py against the parsed format.
+py_args=("$CHAT_FILE" --cursor "$cursor_idx")
+[ -n "$sender" ] && py_args+=(--by "$sender")
+[ -n "$after" ]  && py_args+=(--after "$after")
+[ -n "$before" ] && py_args+=(--before "$before")
+[ -n "$last_n" ] && py_args+=(--last "$last_n")
+
+if [ "$as_json" = "true" ]; then
+  py_args+=(--json)
+  [ "$show_ids" = "true" ] && py_args+=(--id)
+  uv run --script "$MISE_CONFIG_ROOT/lib/read_query.py" "${py_args[@]}"
+else
+  py_args+=(--markdown --no-header)
+  uv run --script "$MISE_CONFIG_ROOT/lib/read_query.py" "${py_args[@]}" | chat_format_messages
 fi
 
 # Advance cursor unless --peek
 if [ "$peek" != "true" ] && [ -n "$identity" ]; then
-  echo ""
+  [ "$as_json" != "true" ] && echo ""
   chat_set_cursor "$identity"
 fi

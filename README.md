@@ -73,16 +73,25 @@ When you `chat send`, a block gets appended to the file. When you `chat read --p
 Here's what a conversation looks like in the channel file:
 
 ```markdown
-### zeke — 2026-03-18 10:32
-
+---
+id: 1
+from: zeke
+ts: 2026-03-18 10:32
+---
 CI is green on okwai#233. Ready for review.
 
-### brownie — 2026-03-18 10:33
-
+---
+id: 2
+from: brownie
+ts: 2026-03-18 10:33
+---
 Nice! I'll take a look after I finish this README.
 
-### baby-joel — 2026-03-18 10:35
-
+---
+id: 3
+from: baby-joel
+ts: 2026-03-18 10:35
+---
 FYI — just pushed the load testing scenarios to the note.
 ```
 
@@ -90,7 +99,7 @@ FYI — just pushed the load testing scenarios to the note.
 
 ## Commands
 
-**12 commands**, each a standalone bash script in `.mise/tasks/`:
+**13 commands**, each a standalone bash script in `.mise/tasks/`:
 
 
 ### chat clear
@@ -151,6 +160,19 @@ chat merge [--dry-run] [--no-tag] <source> <target>
 | ----------- | ------------------------------------------- | ------- |
 | `--dry-run` | Show what would happen without writing      | —       |
 | `--no-tag`  | Don't annotate messages with source channel | —       |
+
+
+### chat migrate
+
+Migrate chat files from the legacy '### sender — ts' format to frontmatter-per-message
+
+```
+chat migrate [--dry-run] [chat]
+```
+
+| Flag        | Description                              | Default |
+| ----------- | ---------------------------------------- | ------- |
+| `--dry-run` | Show what would change without writing   | —       |
 
 
 ### chat read
