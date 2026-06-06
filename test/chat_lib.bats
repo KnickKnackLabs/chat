@@ -43,6 +43,47 @@ load test_helper
   [ "$CHAT_NAME" = "default" ]
 }
 
+@test "resolve: explicit name sets CHAT_NAME_SOURCE=explicit" {
+  chat_resolve "my-chat"
+  [ "$CHAT_NAME_SOURCE" = "explicit" ]
+}
+
+@test "resolve: CHAT_CHANNEL sets CHAT_NAME_SOURCE=env" {
+  CHAT_CHANNEL="from-env" chat_resolve ""
+  [ "$CHAT_NAME_SOURCE" = "env" ]
+}
+
+@test "resolve: empty name sets CHAT_NAME_SOURCE=default" {
+  chat_resolve ""
+  [ "$CHAT_NAME_SOURCE" = "default" ]
+}
+
+# ============================================================================
+# chat_require_file
+# ============================================================================
+
+@test "require_file: succeeds when the chat file exists" {
+  chat_resolve "test-chat"   # created by setup() via chat_init
+  run chat_require_file
+  [ "$status" -eq 0 ]
+}
+
+@test "require_file: named-but-missing channel points at 'create by sending'" {
+  chat_resolve "ghost"
+  run chat_require_file
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"chat 'ghost' does not exist"* ]]
+  [[ "$output" == *"Create it by sending"* ]]
+}
+
+@test "require_file: no inferred channel gives a no-channel diagnostic" {
+  chat_resolve ""   # falls back to default, which does not exist
+  run chat_require_file
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"no chat channel specified"* ]]
+  [[ "$output" != *"Create it by sending"* ]]
+}
+
 # ============================================================================
 # chat_resolve_identity / chat_require_identity
 # ============================================================================

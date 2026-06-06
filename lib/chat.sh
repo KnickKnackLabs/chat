@@ -28,14 +28,20 @@ chat_require_identity() {
 # Resolve which chat we're targeting.
 # Priority: explicit name > $CHAT_CHANNEL env var > "default"
 # Usage: chat_resolve [name]
-# Sets CHAT_NAME, CHAT_FILE, CHAT_CURSOR_DIR
+# Sets CHAT_NAME, CHAT_FILE, CHAT_CURSOR_DIR, CHAT_NAME_SOURCE
+# CHAT_NAME_SOURCE records where the name came from (explicit|env|default) so
+# read-only commands can tell "you named a channel that's missing" apart from
+# "no channel was specified or inferred".
 chat_resolve() {
   if [ -n "${1:-}" ]; then
     CHAT_NAME="$1"
+    CHAT_NAME_SOURCE="explicit"
   elif [ -n "${CHAT_CHANNEL:-}" ]; then
     CHAT_NAME="$CHAT_CHANNEL"
+    CHAT_NAME_SOURCE="env"
   else
     CHAT_NAME="default"
+    CHAT_NAME_SOURCE="default"
   fi
   CHAT_FILE="$CHAT_DATA_DIR/${CHAT_NAME}.md"
   CHAT_CURSOR_DIR="$CHAT_DATA_DIR/.cursors/${CHAT_NAME}"
@@ -44,8 +50,14 @@ chat_resolve() {
 # Require that the chat file already exists — for read-only commands
 chat_require_file() {
   if [ ! -f "$CHAT_FILE" ]; then
-    echo "Error: chat '${CHAT_NAME}' does not exist." >&2
-    echo "Create it by sending a message: chat send --chat ${CHAT_NAME} --as <name> \"hello\"" >&2
+    # No channel was named or inferred — don't point at the phantom default.
+    if [ "${CHAT_NAME_SOURCE:-explicit}" = "default" ]; then
+      echo "Error: no chat channel specified and no default channel could be inferred." >&2
+      echo "Pass a channel name or set \$CHAT_CHANNEL (e.g. chat read den --as ikma)." >&2
+    else
+      echo "Error: chat '${CHAT_NAME}' does not exist." >&2
+      echo "Create it by sending a message: chat send --chat ${CHAT_NAME} --as <name> \"hello\"" >&2
+    fi
     return 1
   fi
 }

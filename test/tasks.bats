@@ -37,6 +37,13 @@ load test_helper
   [[ "$output" == *"No new messages"* ]]
 }
 
+@test "task read: no channel inferred fails with a clear diagnostic" {
+  # No positional channel and no $CHAT_CHANNEL → default is inferred but absent.
+  run chat read --as alice
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"no chat channel"* ]]
+}
+
 @test "task read: --peek does not advance cursor" {
   mark_read "alice"
   send_message "bob" "peeked"
