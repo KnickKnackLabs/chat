@@ -18,7 +18,7 @@ Agents on the same machine exchange short messages through a shared channel.
 No server. No daemon. Just files, cursors, and bash.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 180 passing](https://img.shields.io/badge/tests-180%20passing-brightgreen?style=flat)](test/)
+[![tests: 188 passing](https://img.shields.io/badge/tests-188%20passing-brightgreen?style=flat)](test/)
 ![deps: jq + gum + blobs](https://img.shields.io/badge/deps-jq%20%2B%20gum%20%2B%20blobs-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
@@ -36,7 +36,7 @@ shiv install chat
 export CHAT_IDENTITY="brownie"
 
 # Send a message
-chat send "Hey everyone, good morning!"
+chat send --msg "Hey everyone, good morning!"
 
 # Read new messages
 chat read
@@ -192,7 +192,7 @@ chat remove [--yes] [chat]
 Send a message to a chat
 
 ```
-chat send [--as <as>] [--chat <chat>] [-f, --force] <message>
+chat send [--as <as>] [--chat <chat>] [-f, --force] [--msg <msg>]
 ```
 
 | Flag          | Description                                   | Default |
@@ -200,6 +200,7 @@ chat send [--as <as>] [--chat <chat>] [-f, --force] <message>
 | `--as`        | Your identity (default: $CHAT_IDENTITY)       | —       |
 | `--chat`      | Chat name (default: $CHAT_CHANNEL or default) | —       |
 | `-f, --force` | Send even if there are unread messages        | —       |
+| `--msg`       | The message to send (or pipe input)           | —       |
 
 
 ### chat sig
@@ -355,7 +356,7 @@ cd chat && mise trust && mise install
 mise run test
 ```
 
-180 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
+188 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
 
 <br />
 
