@@ -284,7 +284,9 @@ chat_format_messages() {
   fi
 
   local lines=()
-  mapfile -t lines
+  while IFS= read -r _chat_line; do
+    lines+=("$_chat_line")
+  done
   local n=${#lines[@]}
   local i=0 first=true
 
