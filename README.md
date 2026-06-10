@@ -2,12 +2,20 @@
 
 <pre>
 +--------------------------+
-| ### zeke -- 10:32        |
+| ---                      |
+| id: 4                    |
+| from: zeke               |
+| ts: 2026-03-18 11:50     |
+| ---                      |
 | @brownie, tests passing! |
 |                          |
-| ### brownie -- 10:33     |
+| ---                      |
+| id: 5                    |
+| from: brownie            |
+| ts: 2026-03-18 11:55     |
+| ---                      |
 | On it.                   |
-+--------------------------+
++--------------------------+</pre>
 </pre>
 
 # chat
@@ -18,7 +26,7 @@ Agents on the same machine exchange short messages through a shared channel.
 No server. No daemon. Just files, cursors, and bash.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 180 passing](https://img.shields.io/badge/tests-180%20passing-brightgreen?style=flat)](test/)
+[![tests: 195 passing](https://img.shields.io/badge/tests-195%20passing-brightgreen?style=flat)](test/)
 ![deps: jq + gum + blobs](https://img.shields.io/badge/deps-jq%20%2B%20gum%20%2B%20blobs-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
@@ -47,26 +55,34 @@ chat status
 
 ## How it works
 
-Every chat is a plain markdown file. Messages are appended as timestamped blocks. Each agent tracks their read position with a cursor file — a single number representing the last line they've seen.
+Every chat is a plain markdown file. Messages are stored as YAML-frontmatter blocks, each beginning and ending with `---` and carrying an `id`, `from` (sender), and `ts` (timestamp). Each agent tracks their read position with a cursor file — a single number representing the last **message index** they've read (not a line number, so editing a message body never invalidates anyone's cursor).
 
 ```
-chat.md                    .cursors/
-+-------------------+      +--------------+
-| # ricon-family    |      | zeke    : 42 |
-| ---               |      | brownie : 38 |
-| ### zeke -- 10:32 |      | junior  : 42 |
-|   @brownie ...    |      +--------------+
-| ### brownie 10:33 |
-|   @zeke ...       | <--- line 42
-| ### junior 10:35  |
-|   FYI ...         | <--- line 46
-+-------------------+
-
-brownie's cursor is at 38  ->  2 unread
-zeke and junior at 42      ->  1 unread
+chat.md                        .cursors/
++--------------------+         +--------------+
+| # ricon-family     |         | zeke    : 2  |
+| ---                |         | brownie : 1  |
+| id: 1              |         | junior  : 2  |
+| from: zeke         |         +--------------+
+| ts: 2026-03-18     |
+| ---                |           brownie's cursor is at 1  ->  2 unread
+| @brownie ...       |           zeke and junior at 2      ->  1 unread
+| ---                |
+| id: 2              |         (cursors store message index, not line number)
+| from: brownie      |
+| ts: 2026-03-18     |
+| ---                |
+| @zeke ...          |
+| ---                |
+| id: 3              |
+| from: junior       |
+| ts: 2026-03-18     |
+| ---                |
+| FYI ...            |
++--------------------+
 ```
 
-When you `chat send`, a block gets appended to the file. When you `chat read --peek`, everything past your cursor is "unread." When you `chat read`, your cursor advances to the end. That's the whole model.
+When you `chat send`, a frontmatter-block gets appended to the file. When you `chat read --peek`, everything past your cursor is "unread." When you `chat read`, your cursor advances to the latest message index. That's the whole model.
 
 ## Example
 
@@ -323,7 +339,7 @@ Git repository names are not used for implicit channel selection. Use `--chat fo
 
 - Bash core with Python for structured queries
 - File-based — everything is readable plain text
-- Cursor-based unread tracking — simple line counting
+- Cursor-based unread tracking — message-index cursors, not line numbers
 - Polling, not pushing — `chat wait` checks every 3s
 - Ephemeral — `chat clear` archives and resets
 
@@ -350,9 +366,9 @@ $HOME/.local/share/chat/
 ├── <chat-name>.md          # Channel file (messages in markdown)
 ├── .cursors/
 │   └── <chat-name>/
-│       ├── zeke            # "42" — last-read line number
-│       ├── brownie         # "38"
-│       └── junior          # "42"
+│       ├── zeke            # "2" — last-read message index
+│       ├── brownie         # "1"
+│       └── junior          # "2"
 ├── .signatures/
 │   └── alice               # Optional message signature for identity alice
 └── archive/
@@ -377,7 +393,7 @@ cd chat && mise trust && mise install
 mise run test
 ```
 
-180 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
+195 tests across 4 suites (including migrate), using [BATS](https://github.com/bats-core/bats-core).
 
 <br />
 
