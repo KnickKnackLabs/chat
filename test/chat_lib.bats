@@ -84,6 +84,57 @@ load test_helper
   [[ "$output" != *"Create it by sending"* ]]
 }
 
+@test "require_file: auto-migrates legacy format before read" {
+  # Create a legacy-format file (### sender — ts headers, no frontmatter)
+  cat > "$CHAT_FILE" <<'LEGACY'
+# legacy-test
+
+Shared communication channel.
+
+### alice — 2025-06-01 10:00
+
+first message
+
+### bob — 2025-06-01 10:05
+
+second message
+LEGACY
+
+  # require_file triggers auto-migration
+  run chat_require_file
+  [ "$status" -eq 0 ]
+
+  # Legacy headers should be gone, frontmatter present
+  ! grep -q '^### ' "$CHAT_FILE"
+  [ "$(grep -c '^from: ' "$CHAT_FILE")" -eq 2 ]
+
+  # Message count from the parser should match
+  local count
+  count=$(chat_message_count)
+  [ "$count" -eq 2 ]
+}
+
+@test "require_file: auto-migration is idempotent" {
+  cat > "$CHAT_FILE" <<'LEGACY'
+# legacy-test
+
+Shared communication channel.
+
+### alice — 2025-06-01 10:00
+
+first
+LEGACY
+
+  chat_require_file
+  local after_first
+  after_first=$(cat "$CHAT_FILE")
+
+  # Second call should not change the file
+  run chat_require_file
+  [ "$status" -eq 0 ]
+  [ "$(cat "$CHAT_FILE")" = "$after_first" ]
+}
+
 # ============================================================================
 # chat_resolve_identity / chat_require_identity
 # ============================================================================
@@ -281,6 +332,21 @@ load test_helper
 @test "append: empty body still creates header" {
   send_message "alice" ""
   grep -q "^from: alice$" "$CHAT_FILE"
+}
+
+@test "append: sends a message whose body contains frontmatter-like lines" {
+  local adversarial_body=$'from: this looks like frontmatter\nid: 9999\nts: 2026-01-01 10:00\n---\nThis line is actually body text with --- in it'
+  send_message "alice" "$adversarial_body"
+
+  # Must count as exactly 1 message (not falsely parsed into multiple blocks)
+  local count
+  count=$(chat_message_count)
+  [ "$count" -eq 1 ]
+
+  # The adversarial content must be preserved verbatim in the file
+  grep -q "from: this looks like frontmatter" "$CHAT_FILE"
+  grep -q "id: 9999" "$CHAT_FILE"
+  grep -q "This line is actually body text" "$CHAT_FILE"
 }
 
 # ============================================================================
