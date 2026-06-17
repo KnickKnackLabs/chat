@@ -46,27 +46,44 @@ function box(lines: string[], { padding = 1 }: { padding?: number } = {}): strin
 
 // Conversation snippet — static example of chat output
 const chatSnippet = [
-  { from: "zeke", time: "10:32", body: "CI is green on okwai#233. Ready for review." },
-  { from: "brownie", time: "10:33", body: "Nice! I'll take a look after I finish this README." },
-  { from: "baby-joel", time: "10:35", body: "FYI — just pushed the load testing scenarios to the note." },
-].map(m => `### ${m.from} — 2026-03-18 ${m.time}\n\n${m.body}`).join("\n\n");
+  { from: "zeke", time: "2026-03-18 10:32", body: "CI is green on okwai#233. Ready for review." },
+  { from: "brownie", time: "2026-03-18 10:33", body: "Nice! I'll take a look after I finish this README." },
+  { from: "baby-joel", time: "2026-03-18 10:35", body: "FYI — just pushed the load testing scenarios to the note." },
+].map(m => [
+  "---",
+  `id: ${m.from === "zeke" ? 1 : m.from === "brownie" ? 2 : 3}`,
+  `from: ${m.from}`,
+  `ts: ${m.time}`,
+  "---",
+  m.body,
+].join("\n")).join("\n\n");
 
 // Cursor tracking diagram — ASCII only for reliable alignment on GitHub
 const cursorDiagram = [
-  "chat.md                    .cursors/",
-  "+-------------------+      +--------------+",
-  "| # ricon-family    |      | zeke    : 42 |",
-  "| ---               |      | brownie : 38 |",
-  "| ### zeke -- 10:32 |      | junior  : 42 |",
-  "|   @brownie ...    |      +--------------+",
-  "| ### brownie 10:33 |",
-  "|   @zeke ...       | <--- line 42",
-  "| ### junior 10:35  |",
-  "|   FYI ...         | <--- line 46",
-  "+-------------------+",
+  "chat.md                        .cursors/",
+  "+-----------------------+      +--------------+",
+  "| # ricon-family        |      | zeke    : 3  |",
+  "| ---                   |      | brownie : 2  |",
+  "| --- id: 1 ---         |      | junior  : 3  |",
+  "| from: zeke            |      +--------------+",
+  "| ts: 2026-03-18 10:32  |",
+  "| ---                   |",
+  "|   @brownie ...        | <--- message 3",
+  "| ---                   |",
+  "| id: 2 ---             |",
+  "| from: brownie         | <--- message 2",
+  "| ts: 2026-03-18 10:33  |",
+  "| ---                   |",
+  "|   @zeke ...           |",
+  "| --- id: 3 ---         |",
+  "| from: junior          |",
+  "| ts: 2026-03-18 10:35  |",
+  "| ---                   |",
+  "|   FYI ...             |",
+  "+-----------------------+",
   "",
-  "brownie's cursor is at 38  ->  2 unread",
-  "zeke and junior at 42      ->  1 unread",
+  "brownie's cursor is at 2  ->  1 unread",
+  "zeke and junior at 3      ->  0 unread",
 ].join("\n");
 
 // Build command usage string
@@ -89,11 +106,11 @@ const readme = (
   <>
     <Center>
       <Raw>{`<pre>\n${box([
-        "### zeke -- 10:32",
-        "@brownie, tests passing!",
+        "--- id: 1 ---",
+        "from: zeke",
         "",
-        "### brownie -- 10:33",
-        "On it.",
+        "ts: 2026-03-18 10:32",
+        "@brownie, tests passing!",
       ])}\n</pre>\n\n`}</Raw>
 
       <Heading level={1}>chat</Heading>
@@ -137,7 +154,7 @@ chat status`}</CodeBlock>
 
     <Section title="How it works">
       <Paragraph>
-        {"Every chat is a plain markdown file. Messages are appended as timestamped blocks. Each agent tracks their read position with a cursor file — a single number representing the last line they've seen."}
+        {"Every chat is a plain markdown file. Messages are appended as timestamped blocks. Each agent tracks their read position with a cursor file — a single number representing the last message index they've seen."}
       </Paragraph>
 
       <CodeBlock>{cursorDiagram}</CodeBlock>
@@ -248,7 +265,7 @@ chat status`}</CodeBlock>
             <List>
               <Item>{"Bash core with Python for structured queries"}</Item>
               <Item>{"File-based — everything is readable plain text"}</Item>
-              <Item>{"Cursor-based unread tracking — simple line counting"}</Item>
+              <Item>{"Cursor-based unread tracking — message-index based"}</Item>
               <Item>{"Polling, not pushing — "}<Code>chat wait</Code>{" checks every 3s"}</Item>
               <Item>{"Ephemeral — "}<Code>chat clear</Code>{" archives and resets"}</Item>
             </List>
@@ -271,8 +288,8 @@ chat status`}</CodeBlock>
 ├── <chat-name>.md          # Channel file (messages in markdown)
 ├── .cursors/
 │   └── <chat-name>/
-│       ├── zeke            # "42" — last-read line number
-│       ├── brownie         # "38"
+│       ├── zeke            # "3" — last-read message index
+│       ├── brownie         # "2"
 │       └── junior          # "42"
 ├── .signatures/
 │   └── alice               # Optional message signature for identity alice

@@ -151,14 +151,30 @@ def parse_messages(filepath: Path, source: Optional[str] = None) -> list[Message
 
         index += 1
         raw_id = fields.get("id")
-        try:
-            msg_id = int(raw_id) if raw_id is not None else index
-        except ValueError:
+        if raw_id is not None:
+            try:
+                msg_id = int(raw_id)
+            except ValueError:
+                raise ChatFormatError(
+                    f"invalid chat file format: {filepath} — "
+                    f"malformed id field: {raw_id!r} (expected integer)"
+                )
+        else:
             msg_id = index
         ts_raw = fields.get("ts", "")
+        if ts_raw:
+            try:
+                parsed_ts = _parse_timestamp(ts_raw)
+            except (ValueError, TypeError):
+                raise ChatFormatError(
+                    f"invalid chat file format: {filepath} — "
+                    f"malformed ts field: {ts_raw!r} (expected timestamp)"
+                )
+        else:
+            parsed_ts = datetime.min
         messages.append(Message(
             sender=fields.get("from", ""),
-            timestamp=_parse_timestamp(ts_raw) if ts_raw else datetime.min,
+            timestamp=parsed_ts,
             body=_clean_body(body_lines),
             message_index=index,
             id=msg_id,
