@@ -337,6 +337,12 @@ load test_helper
   [ "$status" -ne 0 ]
 }
 
+@test "task send: omitted --msg ignores stale usage_msg env" {
+  usage_msg="stale inherited message" run chat send --as alice --chat test-chat
+  [ "$status" -ne 0 ]
+  ! grep -q "stale inherited message" "$CHAT_FILE"
+}
+
 # ============================================================================
 # sig task
 # ============================================================================

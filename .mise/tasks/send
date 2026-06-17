@@ -3,7 +3,7 @@
 #USAGE flag "--as <as>" help="Your identity (default: $CHAT_IDENTITY)" default=""
 #USAGE flag "--chat <chat>" help="Chat name (default: $CHAT_CHANNEL or default)" default=""
 #USAGE flag "-f --force" help="Send even if there are unread messages" default=#false
-#USAGE flag "--msg <msg>" help="The message to send (or pipe input)"
+#USAGE flag "--msg <msg>" help="The message to send (or pipe input)" default=""
 #USAGE example "chat send --as alice --msg 'hello everyone'" header="Send a message as alice"
 #USAGE example "chat send --chat ops --as alice --msg 'deploying now'" header="Send to a specific chat"
 #USAGE example "echo 'status update' | chat send --as alice" header="Send from stdin"
