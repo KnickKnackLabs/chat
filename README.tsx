@@ -49,24 +49,26 @@ const chatSnippet = [
   { from: "zeke", time: "10:32", body: "CI is green on okwai#233. Ready for review." },
   { from: "brownie", time: "10:33", body: "Nice! I'll take a look after I finish this README." },
   { from: "baby-joel", time: "10:35", body: "FYI — just pushed the load testing scenarios to the note." },
-].map(m => `### ${m.from} — 2026-03-18 ${m.time}\n\n${m.body}`).join("\n\n");
+]
+  .map((m, i) => `---\nid: ${i + 1}\nfrom: ${m.from}\nts: 2026-03-18 ${m.time}\n---\n\n${m.body}`)
+  .join("\n\n");
 
 // Cursor tracking diagram — ASCII only for reliable alignment on GitHub
 const cursorDiagram = [
   "chat.md                    .cursors/",
   "+-------------------+      +--------------+",
-  "| # ricon-family    |      | zeke    : 42 |",
-  "| ---               |      | brownie : 38 |",
-  "| ### zeke -- 10:32 |      | junior  : 42 |",
-  "|   @brownie ...    |      +--------------+",
-  "| ### brownie 10:33 |",
-  "|   @zeke ...       | <--- line 42",
-  "| ### junior 10:35  |",
-  "|   FYI ...         | <--- line 46",
+  "| # ricon-family    |      | zeke    : 2  |",
+  "| ---               |      | brownie : 1  |",
+  "| id: 1             |      | junior  : 2  |",
+  "| from: zeke        |      +--------------+",
+  "| ts: ...           |",
+  "| ---               | <--- message 1",
+  "| id: 2             |",
+  "| from: brownie     | <--- message 2",
   "+-------------------+",
   "",
-  "brownie's cursor is at 38  ->  2 unread",
-  "zeke and junior at 42      ->  1 unread",
+  "brownie's cursor is at 1  ->  1 unread",
+  "zeke and junior at 2      ->  0 unread",
 ].join("\n");
 
 // Build command usage string
@@ -137,7 +139,7 @@ chat status`}</CodeBlock>
 
     <Section title="How it works">
       <Paragraph>
-        {"Every chat is a plain markdown file. Messages are appended as timestamped blocks. Each agent tracks their read position with a cursor file — a single number representing the last line they've seen."}
+        {"Every chat is a plain markdown file. Messages are appended as frontmatter blocks. Each agent tracks their read position with a cursor file — a single number representing the last message index they've seen."}
       </Paragraph>
 
       <CodeBlock>{cursorDiagram}</CodeBlock>
@@ -248,7 +250,7 @@ chat status`}</CodeBlock>
             <List>
               <Item>{"Bash core with Python for structured queries"}</Item>
               <Item>{"File-based — everything is readable plain text"}</Item>
-              <Item>{"Cursor-based unread tracking — simple line counting"}</Item>
+              <Item>{"Cursor-based unread tracking — message-index counting"}</Item>
               <Item>{"Polling, not pushing — "}<Code>chat wait</Code>{" checks every 3s"}</Item>
               <Item>{"Ephemeral — "}<Code>chat clear</Code>{" archives and resets"}</Item>
             </List>
@@ -271,7 +273,7 @@ chat status`}</CodeBlock>
 ├── <chat-name>.md          # Channel file (messages in markdown)
 ├── .cursors/
 │   └── <chat-name>/
-│       ├── zeke            # "42" — last-read line number
+│       ├── zeke            # "42" — last-read message index
 │       ├── brownie         # "38"
 │       └── junior          # "42"
 ├── .signatures/

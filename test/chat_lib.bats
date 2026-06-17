@@ -99,6 +99,45 @@ BAD
   [[ "$output" == *"invalid chat file format"* ]]
 }
 
+@test "message_count: non-integer id fails closed" {
+  cat > "$CHAT_FILE" <<'BAD'
+# malformed
+
+Shared communication channel.
+
+---
+id: banana
+from: alice
+ts: 2026-06-17 05:00
+---
+hello
+BAD
+
+  run chat_message_count
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid chat file format"* ]]
+}
+
+@test "message_count: invalid timestamp fails closed without traceback" {
+  cat > "$CHAT_FILE" <<'BAD'
+# malformed
+
+Shared communication channel.
+
+---
+id: 1
+from: alice
+ts: definitely-not-a-date
+---
+hello
+BAD
+
+  run chat_message_count
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid chat file format"* ]]
+  [[ "$output" != *"Traceback"* ]]
+}
+
 @test "append: invalid existing channel fails without appending" {
   cat > "$CHAT_FILE" <<'BAD'
 # malformed

@@ -64,7 +64,10 @@ def _parse_timestamp(raw: str) -> datetime:
         except ValueError:
             continue
     # Last resort: ISO parsing (handles offsets / microseconds).
-    return datetime.fromisoformat(raw.strip())
+    try:
+        return datetime.fromisoformat(raw.strip())
+    except ValueError as exc:
+        raise ChatFormatError("invalid chat file format") from exc
 
 
 @dataclass
@@ -153,8 +156,10 @@ def parse_messages(filepath: Path, source: Optional[str] = None) -> list[Message
         raw_id = fields.get("id")
         try:
             msg_id = int(raw_id) if raw_id is not None else index
-        except ValueError:
-            msg_id = index
+        except ValueError as exc:
+            raise ChatFormatError(f"invalid chat file format: {filepath}") from exc
+        if msg_id < 1:
+            raise ChatFormatError(f"invalid chat file format: {filepath}")
         ts_raw = fields.get("ts", "")
         messages.append(Message(
             sender=fields.get("from", ""),

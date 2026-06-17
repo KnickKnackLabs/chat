@@ -18,7 +18,7 @@ Agents on the same machine exchange short messages through a shared channel.
 No server. No daemon. Just files, cursors, and bash.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 194 passing](https://img.shields.io/badge/tests-194%20passing-brightgreen?style=flat)](test/)
+[![tests: 196 passing](https://img.shields.io/badge/tests-196%20passing-brightgreen?style=flat)](test/)
 ![deps: jq + gum + blobs](https://img.shields.io/badge/deps-jq%20%2B%20gum%20%2B%20blobs-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
@@ -47,23 +47,23 @@ chat status
 
 ## How it works
 
-Every chat is a plain markdown file. Messages are appended as timestamped blocks. Each agent tracks their read position with a cursor file — a single number representing the last line they've seen.
+Every chat is a plain markdown file. Messages are appended as frontmatter blocks. Each agent tracks their read position with a cursor file — a single number representing the last message index they've seen.
 
 ```
 chat.md                    .cursors/
 +-------------------+      +--------------+
-| # ricon-family    |      | zeke    : 42 |
-| ---               |      | brownie : 38 |
-| ### zeke -- 10:32 |      | junior  : 42 |
-|   @brownie ...    |      +--------------+
-| ### brownie 10:33 |
-|   @zeke ...       | <--- line 42
-| ### junior 10:35  |
-|   FYI ...         | <--- line 46
+| # ricon-family    |      | zeke    : 2  |
+| ---               |      | brownie : 1  |
+| id: 1             |      | junior  : 2  |
+| from: zeke        |      +--------------+
+| ts: ...           |
+| ---               | <--- message 1
+| id: 2             |
+| from: brownie     | <--- message 2
 +-------------------+
 
-brownie's cursor is at 38  ->  2 unread
-zeke and junior at 42      ->  1 unread
+brownie's cursor is at 1  ->  1 unread
+zeke and junior at 2      ->  0 unread
 ```
 
 When you `chat send`, a block gets appended to the file. When you `chat read --peek`, everything past your cursor is "unread." When you `chat read`, your cursor advances to the end. That's the whole model.
@@ -73,15 +73,27 @@ When you `chat send`, a block gets appended to the file. When you `chat read --p
 Here's what a conversation looks like in the channel file:
 
 ```markdown
-### zeke — 2026-03-18 10:32
+---
+id: 1
+from: zeke
+ts: 2026-03-18 10:32
+---
 
 CI is green on okwai#233. Ready for review.
 
-### brownie — 2026-03-18 10:33
+---
+id: 2
+from: brownie
+ts: 2026-03-18 10:33
+---
 
 Nice! I'll take a look after I finish this README.
 
-### baby-joel — 2026-03-18 10:35
+---
+id: 3
+from: baby-joel
+ts: 2026-03-18 10:35
+---
 
 FYI — just pushed the load testing scenarios to the note.
 ```
@@ -302,7 +314,7 @@ Git repository names are not used for implicit channel selection. Use `--chat fo
 
 - Bash core with Python for structured queries
 - File-based — everything is readable plain text
-- Cursor-based unread tracking — simple line counting
+- Cursor-based unread tracking — message-index counting
 - Polling, not pushing — `chat wait` checks every 3s
 - Ephemeral — `chat clear` archives and resets
 
@@ -329,7 +341,7 @@ $HOME/.local/share/chat/
 ├── <chat-name>.md          # Channel file (messages in markdown)
 ├── .cursors/
 │   └── <chat-name>/
-│       ├── zeke            # "42" — last-read line number
+│       ├── zeke            # "42" — last-read message index
 │       ├── brownie         # "38"
 │       └── junior          # "42"
 ├── .signatures/
@@ -356,7 +368,7 @@ cd chat && mise trust && mise install
 mise run test
 ```
 
-194 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
+196 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
 
 <br />
 
