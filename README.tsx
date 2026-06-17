@@ -126,7 +126,7 @@ shiv install chat
 export CHAT_IDENTITY="brownie"
 
 # Send a message
-chat send "Hey everyone, good morning!"
+chat send --msg "Hey everyone, good morning!"
 
 # Read new messages
 chat read
