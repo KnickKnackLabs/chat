@@ -30,5 +30,16 @@ jobs:
         with:
           install: true
 
+      - name: Check whitespace
+        run: git diff --check
+
       - name: Run tests
         run: mise run test
+
+      - name: Run codebase lints
+        run: codebase lint "$PWD"
+
+      - name: Check README.md is up to date
+        uses: KnickKnackLabs/readme@v0.3.1
+        with:
+          check: true

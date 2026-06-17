@@ -5,7 +5,6 @@
 set -euo pipefail
 
 cd "$MISE_CONFIG_ROOT"
-export CALLER_PWD="$MISE_CONFIG_ROOT"
 
 args=()
 [ "${usage_check:-false}" = "true" ] && args+=(--check)
