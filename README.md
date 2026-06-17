@@ -2,11 +2,11 @@
 
 <pre>
 +--------------------------+
-| ### zeke -- 10:32        |
-| @brownie, tests passing! |
+| --- id: 1 ---            |
+| from: zeke               |
 |                          |
-| ### brownie -- 10:33     |
-| On it.                   |
+| ts: 2026-03-18 10:32     |
+| @brownie, tests passing! |
 +--------------------------+
 </pre>
 
@@ -47,23 +47,33 @@ chat status
 
 ## How it works
 
-Every chat is a plain markdown file. Messages are appended as timestamped blocks. Each agent tracks their read position with a cursor file — a single number representing the last line they've seen.
+Every chat is a plain markdown file. Messages are appended as timestamped blocks. Each agent tracks their read position with a cursor file — a single number representing the last message index they've seen.
 
 ```
-chat.md                    .cursors/
-+-------------------+      +--------------+
-| # ricon-family    |      | zeke    : 42 |
-| ---               |      | brownie : 38 |
-| ### zeke -- 10:32 |      | junior  : 42 |
-|   @brownie ...    |      +--------------+
-| ### brownie 10:33 |
-|   @zeke ...       | <--- line 42
-| ### junior 10:35  |
-|   FYI ...         | <--- line 46
-+-------------------+
+chat.md                        .cursors/
++-----------------------+      +--------------+
+| # ricon-family        |      | zeke    : 3  |
+| ---                   |      | brownie : 2  |
+| --- id: 1 ---         |      | junior  : 3  |
+| from: zeke            |      +--------------+
+| ts: 2026-03-18 10:32  |
+| ---                   |
+|   @brownie ...        | <--- message 3
+| ---                   |
+| id: 2 ---             |
+| from: brownie         | <--- message 2
+| ts: 2026-03-18 10:33  |
+| ---                   |
+|   @zeke ...           |
+| --- id: 3 ---         |
+| from: junior          |
+| ts: 2026-03-18 10:35  |
+| ---                   |
+|   FYI ...             |
++-----------------------+
 
-brownie's cursor is at 38  ->  2 unread
-zeke and junior at 42      ->  1 unread
+brownie's cursor is at 2  ->  1 unread
+zeke and junior at 3      ->  0 unread
 ```
 
 When you `chat send`, a block gets appended to the file. When you `chat read --peek`, everything past your cursor is "unread." When you `chat read`, your cursor advances to the end. That's the whole model.
@@ -73,16 +83,25 @@ When you `chat send`, a block gets appended to the file. When you `chat read --p
 Here's what a conversation looks like in the channel file:
 
 ```markdown
-### zeke — 2026-03-18 10:32
-
+---
+id: 1
+from: zeke
+ts: 2026-03-18 10:32
+---
 CI is green on okwai#233. Ready for review.
 
-### brownie — 2026-03-18 10:33
-
+---
+id: 2
+from: brownie
+ts: 2026-03-18 10:33
+---
 Nice! I'll take a look after I finish this README.
 
-### baby-joel — 2026-03-18 10:35
-
+---
+id: 3
+from: baby-joel
+ts: 2026-03-18 10:35
+---
 FYI — just pushed the load testing scenarios to the note.
 ```
 
@@ -302,7 +321,7 @@ Git repository names are not used for implicit channel selection. Use `--chat fo
 
 - Bash core with Python for structured queries
 - File-based — everything is readable plain text
-- Cursor-based unread tracking — simple line counting
+- Cursor-based unread tracking — message-index based
 - Polling, not pushing — `chat wait` checks every 3s
 - Ephemeral — `chat clear` archives and resets
 
@@ -329,8 +348,8 @@ $HOME/.local/share/chat/
 ├── <chat-name>.md          # Channel file (messages in markdown)
 ├── .cursors/
 │   └── <chat-name>/
-│       ├── zeke            # "42" — last-read line number
-│       ├── brownie         # "38"
+│       ├── zeke            # "3" — last-read message index
+│       ├── brownie         # "2"
 │       └── junior          # "42"
 ├── .signatures/
 │   └── alice               # Optional message signature for identity alice
