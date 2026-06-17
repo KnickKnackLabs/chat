@@ -42,6 +42,21 @@ FM_OPEN_KEY_RE = re.compile(r"^(id|from|ts):\s")
 FM_FIELD_RE = re.compile(r"^([A-Za-z_][\w-]*):\s?(.*)$")
 
 
+class ChatFormatError(ValueError):
+    """Raised when a chat file is not in the expected frontmatter format."""
+
+
+def _has_payload_after_preamble_separator(lines: list[str]) -> bool:
+    """Return True when a no-message file has nonblank data after its separator."""
+    separator = None
+    for i, line in enumerate(lines):
+        if line.strip() == DELIM:
+            separator = i
+    if separator is None:
+        return False
+    return any(line.strip() for line in lines[separator + 1:])
+
+
 def _parse_timestamp(raw: str) -> datetime:
     for fmt in _TS_FORMATS:
         try:
@@ -108,6 +123,8 @@ def parse_messages(filepath: Path, source: Optional[str] = None) -> list[Message
 
     i = _first_block_index(lines)
     if i is None:
+        if _has_payload_after_preamble_separator(lines):
+            raise ChatFormatError(f"invalid chat file format: {filepath}")
         return messages
 
     index = 0
@@ -120,7 +137,12 @@ def parse_messages(filepath: Path, source: Optional[str] = None) -> list[Message
             if m:
                 fields[m.group(1).lower()] = m.group(2).strip()
             i += 1
+        if i >= n:
+            raise ChatFormatError(f"invalid chat file format: {filepath}")
         i += 1  # skip the closing `---`
+
+        if not fields.get("id") or not fields.get("from") or not fields.get("ts"):
+            raise ChatFormatError(f"invalid chat file format: {filepath}")
 
         body_lines: list[str] = []
         while i < n and not _is_block_open(lines, i):

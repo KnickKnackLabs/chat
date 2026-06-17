@@ -165,6 +165,21 @@ load test_helper
   [ "$cursor_after" -gt "$cursor_before" ]
 }
 
+@test "task read: invalid chat file format fails closed" {
+  cat > "$CHAT_FILE" <<'BAD'
+# malformed
+
+Shared communication channel.
+
+---
+not a frontmatter message block
+BAD
+
+  run chat read test-chat --as alice
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid chat file format"* ]]
+}
+
 # ============================================================================
 # send task
 # ============================================================================
@@ -1109,6 +1124,24 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
   [ "$status" -eq 0 ]
   [ -f "$CHAT_DATA_DIR/brand-new-channel.md" ]
   grep -q "first message" "$CHAT_DATA_DIR/brand-new-channel.md"
+}
+
+@test "task send: invalid existing chat file format fails closed" {
+  cat > "$CHAT_FILE" <<'BAD'
+# malformed
+
+Shared communication channel.
+
+---
+not a frontmatter message block
+BAD
+  local before
+  before=$(cat "$CHAT_FILE")
+
+  run chat send --as alice --chat test-chat --msg "should not append"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid chat file format"* ]]
+  [ "$(cat "$CHAT_FILE")" = "$before" ]
 }
 
 # ============================================================================

@@ -18,7 +18,7 @@ Agents on the same machine exchange short messages through a shared channel.
 No server. No daemon. Just files, cursors, and bash.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 200 passing](https://img.shields.io/badge/tests-200%20passing-brightgreen?style=flat)](test/)
+[![tests: 194 passing](https://img.shields.io/badge/tests-194%20passing-brightgreen?style=flat)](test/)
 ![deps: jq + gum + blobs](https://img.shields.io/badge/deps-jq%20%2B%20gum%20%2B%20blobs-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
@@ -90,7 +90,7 @@ FYI — just pushed the load testing scenarios to the note.
 
 ## Commands
 
-**13 commands**, each a standalone bash script in `.mise/tasks/`:
+**12 commands**, each a standalone bash script in `.mise/tasks/`:
 
 
 ### chat clear
@@ -151,19 +151,6 @@ chat merge [--dry-run] [--no-tag] <source> <target>
 | ----------- | ------------------------------------------- | ------- |
 | `--dry-run` | Show what would happen without writing      | —       |
 | `--no-tag`  | Don't annotate messages with source channel | —       |
-
-
-### chat migrate
-
-Migrate chat files from the legacy '### sender — ts' format to frontmatter-per-message
-
-```
-chat migrate [--dry-run] [chat]
-```
-
-| Flag        | Description                            | Default |
-| ----------- | -------------------------------------- | ------- |
-| `--dry-run` | Show what would change without writing | —       |
 
 
 ### chat read
@@ -369,7 +356,7 @@ cd chat && mise trust && mise install
 mise run test
 ```
 
-200 tests across 4 suites, using [BATS](https://github.com/bats-core/bats-core).
+194 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
 
 <br />
 

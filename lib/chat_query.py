@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from parse import parse_messages, _is_block_open
+from parse import ChatFormatError, parse_messages, _is_block_open
 
 
 # Map frontmatter field names to Message dataclass attributes.
@@ -100,7 +100,11 @@ def main() -> None:
         return
 
     text = args.file.read_text()
-    messages = parse_messages(args.file)
+    try:
+        messages = parse_messages(args.file)
+    except ChatFormatError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     if args.count:
         print(len(messages))

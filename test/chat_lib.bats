@@ -84,55 +84,36 @@ load test_helper
   [[ "$output" != *"Create it by sending"* ]]
 }
 
-@test "require_file: auto-migrates legacy format before read" {
-  # Create a legacy-format file (### sender — ts headers, no frontmatter)
-  cat > "$CHAT_FILE" <<'LEGACY'
-# legacy-test
+@test "message_count: invalid payload after preamble separator fails closed" {
+  cat > "$CHAT_FILE" <<'BAD'
+# malformed
 
 Shared communication channel.
 
-### alice — 2025-06-01 10:00
+---
+this is not a frontmatter message block
+BAD
 
-first message
-
-### bob — 2025-06-01 10:05
-
-second message
-LEGACY
-
-  # require_file triggers auto-migration
-  run chat_require_file
-  [ "$status" -eq 0 ]
-
-  # Legacy headers should be gone, frontmatter present
-  ! grep -q '^### ' "$CHAT_FILE"
-  [ "$(grep -c '^from: ' "$CHAT_FILE")" -eq 2 ]
-
-  # Message count from the parser should match
-  local count
-  count=$(chat_message_count)
-  [ "$count" -eq 2 ]
+  run chat_message_count
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid chat file format"* ]]
 }
 
-@test "require_file: auto-migration is idempotent" {
-  cat > "$CHAT_FILE" <<'LEGACY'
-# legacy-test
+@test "append: invalid existing channel fails without appending" {
+  cat > "$CHAT_FILE" <<'BAD'
+# malformed
 
 Shared communication channel.
 
-### alice — 2025-06-01 10:00
+---
+this is not a frontmatter message block
+BAD
+  local before
+  before=$(cat "$CHAT_FILE")
 
-first
-LEGACY
-
-  chat_require_file
-  local after_first
-  after_first=$(cat "$CHAT_FILE")
-
-  # Second call should not change the file
-  run chat_require_file
-  [ "$status" -eq 0 ]
-  [ "$(cat "$CHAT_FILE")" = "$after_first" ]
+  run chat_append "alice" "should not append"
+  [ "$status" -ne 0 ]
+  [ "$(cat "$CHAT_FILE")" = "$before" ]
 }
 
 # ============================================================================

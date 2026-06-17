@@ -3,10 +3,9 @@
 
 CHAT_DATA_DIR="${CHAT_DATA_DIR:-$HOME/.local/share/chat}"
 
-# Determine the repo root.  When running under `mise run`, MISE_CONFIG_ROOT
-# is set to the repo root.  When sourced directly (e.g. in tests or a bare
-# shell), fall back to resolving from this script's location.
-CHAT_REPO_ROOT="${MISE_CONFIG_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)}"
+# Determine the repo root from this library's location.  Do not read mise's
+# task-only config-root env here; agent shells can inherit a stale value.
+CHAT_REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Resolve the caller's identity
 # Priority: explicit flag > $CHAT_IDENTITY env var > empty (spectator)
@@ -65,8 +64,6 @@ chat_require_file() {
     fi
     return 1
   fi
-  # Auto-migrate legacy format before any new-format read operation.
-  _chat_auto_migrate "$CHAT_FILE"
 }
 
 # Ensure chat infrastructure exists
@@ -83,28 +80,6 @@ EOF
   fi
 }
 
-# Detect whether a file still uses the legacy '### sender — ts' format.
-# Returns 0 (true) when legacy headers are found AND no frontmatter blocks
-# exist yet — avoids false positives for body content that starts with '### '.
-_chat_is_legacy() {
-  local file="$1"
-  grep -qE '^### .+ — [0-9]{4}' "$file" 2>/dev/null || return 1
-  grep -q '^from: ' "$file" 2>/dev/null && return 1
-  return 0
-}
-
-# Auto-migrate a legacy-format file in-place before new-format operations.
-# Idempotent — skips files already in the new format.
-_chat_auto_migrate() {
-  local file="$1"
-  [ -f "$file" ] || return 0
-  _chat_is_legacy "$file" || return 0
-  local name
-  name=$(basename "$file" .md)
-  echo "Migrating ${name} from legacy format..." >&2
-  CHAT_DATA_DIR="$CHAT_DATA_DIR" uv run --script "$CHAT_REPO_ROOT/.mise/tasks/migrate" "$name" 2>/dev/null || true
-}
-
 # Get the current line count of the chat file
 chat_line_count() {
   wc -l < "$CHAT_FILE" | tr -d ' '
@@ -115,20 +90,24 @@ chat_line_count() {
 # so body content that happens to contain ``from:`` is never miscounted.
 chat_message_count() {
   local file="${1:-$CHAT_FILE}"
-  uv run --script "$CHAT_REPO_ROOT/lib/chat_query.py" "$file" --count 2>/dev/null || echo 0
+  uv run --script "$CHAT_REPO_ROOT/lib/chat_query.py" "$file" --count
 }
 
 # Value of a frontmatter field on the last message of a file ("" if none).
 # Usage: chat_last_field <file> <field>   (field is one of from|ts|to|id|src)
 chat_last_field() {
   local file="$1" field="$2"
-  uv run --script "$CHAT_REPO_ROOT/lib/chat_query.py" "$file" --last-field "$field" 2>/dev/null || true
+  if ! uv run --script "$CHAT_REPO_ROOT/lib/chat_query.py" "$file" --last-field "$field" 2>/dev/null; then
+    return 0
+  fi
 }
 
 # Unique, lowercase, sorted list of senders in a file (one per line).
 chat_participants() {
   local file="$1"
-  uv run --script "$CHAT_REPO_ROOT/lib/chat_query.py" "$file" --participants 2>/dev/null || true
+  if ! uv run --script "$CHAT_REPO_ROOT/lib/chat_query.py" "$file" --participants 2>/dev/null; then
+    return 0
+  fi
 }
 
 # Get the cursor (index of the last-read message) for an agent
@@ -151,7 +130,9 @@ chat_set_cursor() {
   fi
   local cursor_file="$CHAT_CURSOR_DIR/$agent"
   local count previous
-  count=$(chat_message_count)
+  if ! count=$(chat_message_count); then
+    return 1
+  fi
   if [ -f "$cursor_file" ]; then
     previous=$(cat "$cursor_file")
     if [ "$previous" != "$count" ]; then
@@ -213,12 +194,12 @@ chat_append() {
   local message="$2"
   local to="${3:-}"
 
-  # Auto-migrate legacy format before writing a new message.
-  _chat_auto_migrate "$CHAT_FILE"
-
-  local ts id
+  local ts id count
   ts=$(chat_timestamp)
-  id=$(( $(chat_message_count) + 1 ))
+  if ! count=$(chat_message_count); then
+    return 1
+  fi
+  id=$(( count + 1 ))
 
   {
     printf '\n%s\n' '---'
@@ -236,7 +217,7 @@ chat_append() {
 # happens to start with ``id:`` is never mistaken for a block opener.
 _chat_messages_after() {
   local cursor="$1"
-  uv run --script "$CHAT_REPO_ROOT/lib/chat_query.py" "$CHAT_FILE" --messages-after "$cursor" 2>/dev/null || true
+  uv run --script "$CHAT_REPO_ROOT/lib/chat_query.py" "$CHAT_FILE" --messages-after "$cursor"
 }
 
 # Count messages with index > the given cursor, excluding sender `self`
@@ -245,7 +226,7 @@ _chat_count_after() {
   local cursor="$1" self="$2"
   local args=("$CHAT_FILE" --count-after "$cursor")
   [ -n "$self" ] && args+=(--exclude-sender "$self")
-  uv run --script "$CHAT_REPO_ROOT/lib/chat_query.py" "${args[@]}" 2>/dev/null || echo 0
+  uv run --script "$CHAT_REPO_ROOT/lib/chat_query.py" "${args[@]}"
 }
 
 # Get new messages (raw frontmatter blocks) since an agent's cursor.
@@ -254,7 +235,9 @@ chat_new_messages() {
   local agent="$1"
   local cursor total
   cursor=$(chat_get_cursor "$agent")
-  total=$(chat_message_count)
+  if ! total=$(chat_message_count); then
+    return 1
+  fi
 
   if [ "$cursor" -ge "$total" ]; then
     return 1  # no new messages

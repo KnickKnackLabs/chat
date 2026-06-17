@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from parse import format_message, parse_header, parse_messages, TIMESTAMP_FMT
+from parse import ChatFormatError, format_message, parse_header, parse_messages, TIMESTAMP_FMT
 
 
 def parse_date(s: str) -> datetime:
@@ -43,7 +43,11 @@ def main():
         print(f"Error: file not found: {args.chat_file}", file=sys.stderr)
         sys.exit(1)
 
-    messages = parse_messages(args.chat_file)
+    try:
+        messages = parse_messages(args.chat_file)
+    except ChatFormatError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     # Filter by cursor (unread mode) — cursor is a 1-based message index
     if args.cursor > 0:
