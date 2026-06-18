@@ -25,4 +25,7 @@ if ! $has_target; then
   args+=("$TEST_DIR/")
 fi
 
+# Note: --jobs / parallel execution intentionally omitted. Task-level tests
+# invoke `mise run` inside the chat() shim, which acquires a mise lock.
+# Parallel file execution causes race conditions on that lock.
 exec bats "${args[@]}"
