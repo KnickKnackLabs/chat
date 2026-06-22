@@ -4,7 +4,7 @@
 #USAGE example "mise run test" header="Run all tests"
 #USAGE example "mise run test test/messages.bats" header="Run a specific test file"
 #USAGE example "mise run test --filter 'unread'" header="Filter tests by name"
-set -eo pipefail
+set -euo pipefail
 
 TEST_DIR="$MISE_CONFIG_ROOT/test"
 
