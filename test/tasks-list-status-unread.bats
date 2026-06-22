@@ -11,7 +11,7 @@ load test_helper
   run chat export test-chat --stdout
   [ "$status" -eq 0 ]
   [[ "$output" == *"# test-chat"* ]]
-  [[ "$output" == *"from: alice"* ]]
+  [[ "$output" == *"### alice"* ]]
   [[ "$output" == *"hello"* ]]
 }
 
@@ -32,7 +32,7 @@ assert data[0]['body'] == 'hello'
   run chat export test-chat --stdout --after 1970-01-01
   [ "$status" -eq 0 ]
   [[ "$output" == *"# test-chat"* ]]
-  [[ "$output" == *"from: alice"* ]]
+  [[ "$output" == *"### alice"* ]]
   [[ "$output" == *"hello"* ]]
 }
 
@@ -216,11 +216,8 @@ for c in channels:
 
 ---
 
----
-id: 1
-from: alice
-ts: 2025-01-01 10:00
----
+### alice — 2025-01-01 10:00
+
 old message
 EOF
 
@@ -229,11 +226,8 @@ EOF
 
 ---
 
----
-id: 1
-from: bob
-ts: 2026-03-25 10:00
----
+### bob — 2026-03-25 10:00
+
 new message
 EOF
 
