@@ -1,4 +1,5 @@
 #!/usr/bin/env bats
+bats_require_minimum_version 1.10.0
 # Tests for read --json (advanced query) and merge task (Python+uv)
 
 load test_helper
