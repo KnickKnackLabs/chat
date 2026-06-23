@@ -356,7 +356,7 @@ cd chat && mise trust && mise install
 mise run test
 ```
 
-189 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
+189 tests across 8 suites, using [BATS](https://github.com/bats-core/bats-core).
 
 <br />
 
