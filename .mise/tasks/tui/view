@@ -23,7 +23,7 @@ try_tput() {
 }
 
 try_clear() {
-  if ! clear; then
+  if ! clear 2>/dev/null; then
     : # clear can fail when TERM is missing or unsupported
   fi
 }
