@@ -1129,6 +1129,53 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
 # tui task
 # ============================================================================
 
+_setup_tui_compose_gum() {
+  local confirm_status="$1"
+  export GUM="$BATS_TEST_TMPDIR/gum"
+  export GUM_CONFIRM_STATUS="$confirm_status"
+  export GUM_WRITE_COUNT="$BATS_TEST_TMPDIR/gum-write-count"
+  cat > "$GUM" <<'GUM_MOCK'
+#!/usr/bin/env bash
+set -euo pipefail
+cmd="$1"
+shift
+case "$cmd" in
+  style)
+    while [ "$#" -gt 0 ]; do
+      if [ "$1" = "--" ]; then
+        shift
+        break
+      fi
+      shift
+    done
+    printf '%s\n' "$*"
+    ;;
+  write)
+    count=0
+    if [ -f "$GUM_WRITE_COUNT" ]; then
+      count=$(cat "$GUM_WRITE_COUNT")
+    fi
+    printf '%s\n' "$((count + 1))" > "$GUM_WRITE_COUNT"
+    if [ "$count" -eq 0 ]; then
+      printf 'draft after room change\n'
+      printf 'other-chat\n' > "$CHAT_TUI_STATE_DIR/channel"
+      exit 0
+    fi
+    exit 1
+    ;;
+  confirm)
+    printf 'confirm:%s\n' "$*"
+    exit "$GUM_CONFIRM_STATUS"
+    ;;
+  *)
+    printf 'unexpected gum command: %s\n' "$cmd" >&2
+    exit 1
+    ;;
+esac
+GUM_MOCK
+  chmod +x "$GUM"
+}
+
 @test "task tui: --dry-run prepares state without attaching" {
   run chat tui test-chat --as alice --session test-ui --dry-run
   [ "$status" -eq 0 ]
@@ -1198,6 +1245,55 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
   [[ "$output" == *"compose"* ]]
   [[ "$output" != *"unknown terminal type"* ]]
   [[ "$output" != *"TERM environment variable not set"* ]]
+}
+
+@test "task tui: compose confirms before sending to changed room" {
+  chat_resolve "other-chat"
+  chat_init
+  run chat tui test-chat --as alice --session test-ui --dry-run
+  [ "$status" -eq 0 ]
+
+  export CHAT_TUI_ROOT="$CHAT_REPO_ROOT"
+  export CHAT_TUI_STATE_DIR="$CHAT_DATA_DIR/.tui/test-ui"
+  _setup_tui_compose_gum 0
+
+  run chat tui:compose
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"compose target changed while drafting"* ]]
+  [[ "$output" == *"confirm:Send to #other-chat as alice instead?"* ]]
+  [[ "$output" == *"sent to #other-chat"* ]]
+
+  run chat read other-chat --all
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"draft after room change"* ]]
+
+  run chat read test-chat --all
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"draft after room change"* ]]
+}
+
+@test "task tui: compose leaves changed-room draft unsent when not confirmed" {
+  chat_resolve "other-chat"
+  chat_init
+  run chat tui test-chat --as alice --session test-ui --dry-run
+  [ "$status" -eq 0 ]
+
+  export CHAT_TUI_ROOT="$CHAT_REPO_ROOT"
+  export CHAT_TUI_STATE_DIR="$CHAT_DATA_DIR/.tui/test-ui"
+  _setup_tui_compose_gum 1
+
+  run chat tui:compose
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"compose target changed while drafting"* ]]
+  [[ "$output" == *"draft not sent"* ]]
+
+  run chat read other-chat --all
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"draft after room change"* ]]
+
+  run chat read test-chat --all
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"draft after room change"* ]]
 }
 
 @test "task tui: README documents independently runnable pane tasks" {

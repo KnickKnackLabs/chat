@@ -45,6 +45,22 @@ while true; do
     continue
   fi
 
+  current_channel="$(chat_tui_current_channel)"
+  current_identity="$(chat_tui_current_identity)"
+  if [ "$current_channel" != "$channel" ] || [ "$current_identity" != "$identity" ]; then
+    chat_tui_gum style --bold --foreground 214 -- "compose target changed while drafting"
+    printf 'draft started in: chat:%s as:%s\n' "$channel" "$identity"
+    printf 'current target:   chat:%s as:%s\n' "$current_channel" "$current_identity"
+    if chat_tui_gum confirm "Send to #$current_channel as $current_identity instead?"; then
+      channel="$current_channel"
+      identity="$current_identity"
+    else
+      chat_tui_gum style --foreground 240 -- "draft not sent"
+      sleep 1
+      continue
+    fi
+  fi
+
   if printf '%s' "$body" | chat_tui_clean send --chat "$channel" --as "$identity" --force; then
     chat_tui_gum style --foreground 46 -- "sent to #$channel"
   else
