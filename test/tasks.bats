@@ -1159,6 +1159,35 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
   [[ "$output" == *"test-chat"* ]]
 }
 
+@test "task tui: pane tasks do not leak clear errors without TERM" {
+  send_message "bob" "pane render"
+  run chat tui test-chat --as alice --session test-ui --dry-run
+  [ "$status" -eq 0 ]
+
+  export CHAT_TUI_ROOT="$CHAT_REPO_ROOT"
+  export CHAT_TUI_STATE_DIR="$CHAT_DATA_DIR/.tui/test-ui"
+  export CHAT_TUI_LAST=5
+  export CHAT_TUI_POLL=1
+
+  TERM= run chat tui:view --once
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"pane render"* ]]
+  [[ "$output" != *"unknown terminal type"* ]]
+  [[ "$output" != *"TERM environment variable not set"* ]]
+
+  TERM= run chat tui:compose --dry-run
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"compose"* ]]
+  [[ "$output" != *"unknown terminal type"* ]]
+  [[ "$output" != *"TERM environment variable not set"* ]]
+}
+
+@test "task tui: README documents independently runnable pane tasks" {
+  grep -q '^### chat tui:rooms$' "$CHAT_REPO_ROOT/README.md"
+  grep -q '^### chat tui:view$' "$CHAT_REPO_ROOT/README.md"
+  grep -q '^### chat tui:compose$' "$CHAT_REPO_ROOT/README.md"
+}
+
 # ============================================================================
 # non-existent channel — read-only commands should fail, send should create
 # ============================================================================

@@ -12,7 +12,7 @@ height="${CHAT_TUI_COMPOSE_HEIGHT:-6}"
 chat_tui_ensure_state
 
 try_clear() {
-  if ! clear; then
+  if ! clear 2>/dev/null; then
     : # clear can fail when TERM is missing or unsupported
   fi
 }

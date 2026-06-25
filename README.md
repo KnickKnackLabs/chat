@@ -18,7 +18,7 @@ Agents on the same machine exchange short messages through a shared channel.
 No server. No daemon. Just files, cursors, and bash.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 199 passing](https://img.shields.io/badge/tests-199%20passing-brightgreen?style=flat)](test/)
+[![tests: 201 passing](https://img.shields.io/badge/tests-201%20passing-brightgreen?style=flat)](test/)
 ![deps: jq + gum + fzf + zellij + blobs](https://img.shields.io/badge/deps-jq%20%2B%20gum%20%2B%20fzf%20%2B%20zellij%20%2B%20blobs-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
@@ -93,7 +93,7 @@ FYI — just pushed the load testing scenarios to the note.
 
 ## Commands
 
-**13 commands**, each a standalone bash script in `.mise/tasks/`:
+**18 commands**, each a standalone bash script in `.mise/tasks/`:
 
 
 ### chat clear
@@ -107,6 +107,32 @@ chat clear [--yes] [chat]
 | Flag    | Description       | Default |
 | ------- | ----------------- | ------- |
 | `--yes` | Skip confirmation | —       |
+
+
+### chat cursor:clear
+
+Clear your cursor (mark everything as unread)
+
+```
+chat cursor:clear [--as <as>] [chat]
+```
+
+| Flag   | Description                             | Default |
+| ------ | --------------------------------------- | ------- |
+| `--as` | Your identity (default: $CHAT_IDENTITY) | —       |
+
+
+### chat cursor:undo
+
+Undo the last cursor advance (restore previous read position)
+
+```
+chat cursor:undo [--as <as>] [chat]
+```
+
+| Flag   | Description                             | Default |
+| ------ | --------------------------------------- | ------- |
+| `--as` | Your identity (default: $CHAT_IDENTITY) | —       |
 
 
 ### chat export
@@ -261,6 +287,45 @@ chat tui [--as <as>] [--session <session>] [--fresh] [--last <last>] [--poll <se
 | `--dry-run` | Prepare state and print the launch command without attaching | —          |
 
 
+### chat tui:compose
+
+Open the compose pane for chat tui
+
+```
+chat tui:compose [--dry-run]
+```
+
+| Flag        | Description                                                | Default |
+| ----------- | ---------------------------------------------------------- | ------- |
+| `--dry-run` | Print the compose target and exit before opening gum write | —       |
+
+
+### chat tui:rooms
+
+Select the active room for chat tui
+
+```
+chat tui:rooms [--print]
+```
+
+| Flag      | Description                                        | Default |
+| --------- | -------------------------------------------------- | ------- |
+| `--print` | Print selectable rooms once instead of opening fzf | —       |
+
+
+### chat tui:view
+
+Render the live message pane for chat tui
+
+```
+chat tui:view [--once]
+```
+
+| Flag     | Description                             | Default |
+| -------- | --------------------------------------- | ------- |
+| `--once` | Render once and exit instead of polling | —       |
+
+
 ### chat unread
 
 Count total unread messages across all channels
@@ -384,7 +449,7 @@ cd chat && mise trust && mise install
 mise run test
 ```
 
-199 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
+201 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
 
 <br />
 
