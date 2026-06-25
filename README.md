@@ -18,8 +18,8 @@ Agents on the same machine exchange short messages through a shared channel.
 No server. No daemon. Just files, cursors, and bash.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 189 passing](https://img.shields.io/badge/tests-189%20passing-brightgreen?style=flat)](test/)
-![deps: jq + gum + blobs](https://img.shields.io/badge/deps-jq%20%2B%20gum%20%2B%20blobs-blue?style=flat)
+[![tests: 199 passing](https://img.shields.io/badge/tests-199%20passing-brightgreen?style=flat)](test/)
+![deps: jq + gum + fzf + zellij + blobs](https://img.shields.io/badge/deps-jq%20%2B%20gum%20%2B%20fzf%20%2B%20zellij%20%2B%20blobs-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
 </div>
@@ -43,6 +43,9 @@ chat read
 
 # Quick status overview
 chat status
+
+# Human-oriented live cockpit
+chat tui fold --as brownie
 ```
 
 ## How it works
@@ -90,7 +93,7 @@ FYI — just pushed the load testing scenarios to the note.
 
 ## Commands
 
-**12 commands**, each a standalone bash script in `.mise/tasks/`:
+**13 commands**, each a standalone bash script in `.mise/tasks/`:
 
 
 ### chat clear
@@ -240,6 +243,24 @@ chat test
 ```
 
 
+### chat tui
+
+Open a zellij chat cockpit
+
+```
+chat tui [--as <as>] [--session <session>] [--fresh] [--last <last>] [--poll <seconds>] [--dry-run] [chat]
+```
+
+| Flag        | Description                                                  | Default    |
+| ----------- | ------------------------------------------------------------ | ---------- |
+| `--as`      | Your identity (default: $CHAT_IDENTITY)                      | —          |
+| `--session` | Zellij session name                                          | `chat-tui` |
+| `--fresh`   | Kill/delete an existing session before opening               | —          |
+| `--last`    | Messages to show in the live view                            | `80`       |
+| `--poll`    | Live view refresh interval                                   | `2`        |
+| `--dry-run` | Prepare state and print the launch command without attaching | —          |
+
+
 ### chat unread
 
 Count total unread messages across all channels
@@ -260,15 +281,21 @@ chat unread [--as <as>] [--json] [--max-parallel <max_parallel>]
 Wait for a new message
 
 ```
-chat wait [--as <as>] [--timeout <seconds>] [--forever] [--batch <batch>] [chat]
+chat wait [--as <as>] [--by <by>] [--from <from>] [--mention <identity>] [--mentioned] [--timeout <seconds>] [--forever] [--poll <seconds>] [--batch <batch>] [--loop] [chat]
 ```
 
-| Flag        | Description                                                    | Default |
-| ----------- | -------------------------------------------------------------- | ------- |
-| `--as`      | Your identity — ignores own messages (default: $CHAT_IDENTITY) | —       |
-| `--timeout` | Max seconds to wait (0 = forever)                              | `120`   |
-| `--forever` | Wait indefinitely (shorthand for --timeout 0)                  | —       |
-| `--batch`   | Wait for N messages from others before waking (default: 1)     | `1`     |
+| Flag          | Description                                                    | Default |
+| ------------- | -------------------------------------------------------------- | ------- |
+| `--as`        | Your identity — ignores own messages (default: $CHAT_IDENTITY) | —       |
+| `--by`        | Only wake on messages from this sender                         | —       |
+| `--from`      | Alias for --by                                                 | —       |
+| `--mention`   | Only wake on messages mentioning @identity                     | —       |
+| `--mentioned` | Only wake on messages mentioning the waiting identity          | —       |
+| `--timeout`   | Max seconds to wait (0 = forever)                              | `120`   |
+| `--forever`   | Wait indefinitely (shorthand for --timeout 0)                  | —       |
+| `--poll`      | Polling interval in seconds                                    | `3`     |
+| `--batch`     | Wait for N matching messages before waking                     | `1`     |
+| `--loop`      | Keep waiting after each matching batch                         | —       |
 
 <br />
 
@@ -304,6 +331,7 @@ Git repository names are not used for implicit channel selection. Use `--chat fo
 - File-based — everything is readable plain text
 - Cursor-based unread tracking — simple line counting
 - Polling, not pushing — `chat wait` checks every 3s
+- TUI panes are mise subtasks — `chat tui:rooms`, `chat tui:view`, and `chat tui:compose` can run independently
 - Ephemeral — `chat clear` archives and resets
 
 
@@ -356,7 +384,7 @@ cd chat && mise trust && mise install
 mise run test
 ```
 
-189 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
+199 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
 
 <br />
 

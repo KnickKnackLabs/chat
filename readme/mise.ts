@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "fs";
+import { existsSync, readFileSync, readdirSync } from "fs";
 import { join } from "path";
 
 export interface MiseCommand {
@@ -38,7 +38,7 @@ function stringAttr(attrs: UsageAttrs, key: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-function parseMiseTask(taskDir: string, filename: string): MiseCommand {
+function parseMiseTask(taskDir: string, filename: string, name = filename): MiseCommand {
   const src = readFileSync(join(taskDir, filename), "utf-8");
   const lines = src.split("\n");
 
@@ -82,13 +82,26 @@ function parseMiseTask(taskDir: string, filename: string): MiseCommand {
     }
   }
 
-  return { name: filename, description: desc, flags, args, hidden };
+  return { name, description: desc, flags, args, hidden };
 }
 
 export function parseMiseTasks(taskDir: string): MiseCommand[] {
   return readdirSync(taskDir, { withFileTypes: true })
-    .filter(entry => entry.isFile() && !entry.name.startsWith(".") && !entry.name.startsWith("_"))
-    .map(entry => parseMiseTask(taskDir, entry.name))
+    .filter(entry => !entry.name.startsWith("."))
+    .flatMap(entry => {
+      if (entry.isFile() && !entry.name.startsWith("_")) {
+        return [parseMiseTask(taskDir, entry.name)];
+      }
+
+      if (entry.isDirectory() && !entry.name.startsWith("_")) {
+        const defaultTask = join(entry.name, "_default");
+        if (existsSync(join(taskDir, defaultTask))) {
+          return [parseMiseTask(taskDir, defaultTask, entry.name)];
+        }
+      }
+
+      return [];
+    })
     .filter(command => !command.hidden)
     .sort((a, b) => a.name.localeCompare(b.name));
 }

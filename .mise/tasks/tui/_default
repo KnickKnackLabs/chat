@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+#MISE description="Open a zellij chat cockpit"
+#USAGE arg "[chat]" default="" help="Initial chat channel (default: $CHAT_CHANNEL or default)"
+#USAGE flag "--as <as>" default="" help="Your identity (default: $CHAT_IDENTITY)"
+#USAGE flag "--session <session>" default="chat-tui" help="Zellij session name"
+#USAGE flag "--fresh" default=#false help="Kill/delete an existing session before opening"
+#USAGE flag "--last <last>" default="80" help="Messages to show in the live view"
+#USAGE flag "--poll <seconds>" default="2" help="Live view refresh interval"
+#USAGE flag "--dry-run" default=#false help="Prepare state and print the launch command without attaching"
+#USAGE example "chat tui --as alice" header="Open the default chat cockpit"
+#USAGE example "chat tui fold --as alice" header="Open a specific channel"
+#USAGE example "chat tui fold --as alice --fresh" header="Recreate the zellij session with the current layout"
+set -euo pipefail
+
+source "$MISE_CONFIG_ROOT/lib/chat.sh"
+
+chat_resolve "${usage_chat:-}"
+chat_require_file
+chat_require_identity "${usage_as:-}"
+identity="$CHAT_IDENTITY"
+
+session="${usage_session:-chat-tui}"
+fresh="${usage_fresh:-false}"
+last="${usage_last:-80}"
+poll="${usage_poll:-2}"
+dry_run="${usage_dry_run:-false}"
+
+case "$last" in
+  ''|*[!0-9]*) echo "Error: --last must be a non-negative integer (got: $last)" >&2; exit 1 ;;
+esac
+case "$poll" in
+  ''|*[!0-9]*) echo "Error: --poll must be a positive integer (got: $poll)" >&2; exit 1 ;;
+  0) echo "Error: --poll must be a positive integer (got: 0)" >&2; exit 1 ;;
+esac
+
+safe_session=$(printf '%s' "$session" | tr -c 'A-Za-z0-9_.-' '_')
+state_dir="$CHAT_DATA_DIR/.tui/$safe_session"
+mkdir -p "$state_dir"
+printf '%s\n' "$CHAT_NAME" > "$state_dir/channel"
+printf '%s\n' "$identity" > "$state_dir/identity"
+
+export CHAT_TUI_ROOT="$MISE_CONFIG_ROOT"
+export CHAT_TUI_STATE_DIR="$state_dir"
+export CHAT_CHANNEL="$CHAT_NAME"
+export CHAT_IDENTITY="$identity"
+export CHAT_TUI_LAST="$last"
+export CHAT_TUI_POLL="$poll"
+
+layout="$MISE_CONFIG_ROOT/lib/tui/layout.kdl"
+
+if [ "$dry_run" = "true" ]; then
+  printf 'prepared chat tui session %s (chat:%s as:%s)\n' "$session" "$CHAT_NAME" "$identity"
+  printf 'state_dir=%s\n' "$state_dir"
+  printf 'layout=%s\n' "$layout"
+  printf 'pane_tasks=tui:rooms,tui:view,tui:compose\n'
+  printf 'command=zellij attach --create --forget --force-run-commands %s options --default-layout %s\n' "$session" "$layout"
+  exit 0
+fi
+
+if [ "$fresh" = "true" ]; then
+  if ! zellij kill-session "$session" >/dev/null 2>&1; then
+    : # session may not exist yet
+  fi
+  if ! zellij delete-session "$session" >/dev/null 2>&1; then
+    : # saved session may not exist yet
+  fi
+fi
+
+printf 'opening zellij session %s (chat:%s as:%s)\n' "$session" "$CHAT_NAME" "$identity"
+exec zellij attach --create --forget --force-run-commands "$session" options --default-layout "$layout"

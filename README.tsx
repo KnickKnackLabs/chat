@@ -111,7 +111,7 @@ const readme = (
       <Badges>
         <Badge label="lang" value="bash" color="4EAA25" logo="gnubash" logoColor="white" />
         <Badge label="tests" value={`${testCount} passing`} color="brightgreen" href="test/" />
-        <Badge label="deps" value="jq + gum + blobs" color="blue" />
+        <Badge label="deps" value="jq + gum + fzf + zellij + blobs" color="blue" />
         <Badge label="License" value="MIT" color="blue" />
       </Badges>
     </Center>
@@ -132,7 +132,10 @@ chat send --msg "Hey everyone, good morning!"
 chat read
 
 # Quick status overview
-chat status`}</CodeBlock>
+chat status
+
+# Human-oriented live cockpit
+chat tui fold --as brownie`}</CodeBlock>
     </Section>
 
     <Section title="How it works">
@@ -250,6 +253,7 @@ chat status`}</CodeBlock>
               <Item>{"File-based — everything is readable plain text"}</Item>
               <Item>{"Cursor-based unread tracking — simple line counting"}</Item>
               <Item>{"Polling, not pushing — "}<Code>chat wait</Code>{" checks every 3s"}</Item>
+              <Item>{"TUI panes are mise subtasks — "}<Code>chat tui:rooms</Code>{", "}<Code>chat tui:view</Code>{", and "}<Code>chat tui:compose</Code>{" can run independently"}</Item>
               <Item>{"Ephemeral — "}<Code>chat clear</Code>{" archives and resets"}</Item>
             </List>
           </HtmlTd>

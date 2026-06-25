@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+#MISE description="Open the compose pane for chat tui"
+#USAGE flag "--dry-run" default=#false help="Print the compose target and exit before opening gum write"
+set -euo pipefail
+
+root="$MISE_CONFIG_ROOT"
+# shellcheck source=lib/tui/common.sh
+source "$root/lib/tui/common.sh"
+
+dry_run="${usage_dry_run:-false}"
+height="${CHAT_TUI_COMPOSE_HEIGHT:-6}"
+chat_tui_ensure_state
+
+try_clear() {
+  if ! clear; then
+    : # clear can fail when TERM is missing or unsupported
+  fi
+}
+
+while true; do
+  channel="$(chat_tui_current_channel)"
+  identity="$(chat_tui_current_identity)"
+
+  try_clear
+  chat_tui_gum style --bold --foreground 212 -- "compose → chat:$channel as:$identity"
+  chat_tui_gum style --foreground 240 -- "Multiline input via gum write. Empty drafts are skipped. Ctrl-C exits this pane."
+  printf '\n'
+
+  if [ "$dry_run" = "true" ]; then
+    exit 0
+  fi
+
+  if ! body="$(chat_tui_gum write \
+    --height="$height" \
+    --header="Message to #$channel as $identity" \
+    --placeholder="Write a message…" \
+    --show-line-numbers)"; then
+    printf 'composer exited\n'
+    exit 0
+  fi
+
+  if [ -z "$(printf '%s' "$body" | tr -d '[:space:]')" ]; then
+    chat_tui_gum style --foreground 240 -- "empty draft skipped"
+    sleep 1
+    continue
+  fi
+
+  if printf '%s' "$body" | chat_tui_clean send --chat "$channel" --as "$identity" --force; then
+    chat_tui_gum style --foreground 46 -- "sent to #$channel"
+  else
+    chat_tui_gum style --foreground 196 -- "send failed"
+  fi
+  sleep 1
+done
