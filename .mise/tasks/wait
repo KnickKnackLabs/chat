@@ -116,11 +116,23 @@ _count_matching_messages() {
     -v self="$self" \
     -v sender_filter="$sender_filter" \
     -v mention_filter="$mention_filter" '
+      function has_mention(text, identity,    needle, start, pos, after) {
+        if (identity == "") return 1
+        needle = "@" identity
+        start = 1
+        while ((pos = index(substr(text, start), needle)) > 0) {
+          pos = start + pos - 1
+          after = substr(text, pos + length(needle), 1)
+          if (after == "" || after !~ /[[:alnum:]_.-]/) return 1
+          start = pos + length(needle)
+        }
+        return 0
+      }
       function finish_message() {
         if (!in_message) return
         if (self != "" && sender == self) return
         if (sender_filter != "" && sender != sender_filter) return
-        if (mention_filter != "" && index(body, "@" mention_filter) == 0) return
+        if (mention_filter != "" && !has_mention(body, mention_filter)) return
         count++
       }
       /^### / {
