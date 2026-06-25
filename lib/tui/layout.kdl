@@ -1,0 +1,18 @@
+layout {
+    pane split_direction="horizontal" {
+        pane split_direction="vertical" size="70%" {
+            pane name="rooms" size="25%" command="bash" {
+                args "-c" "exec mise run -C \"$CHAT_TUI_ROOT\" -q tui:rooms"
+            }
+            pane name="view" command="bash" {
+                args "-c" "exec mise run -C \"$CHAT_TUI_ROOT\" -q tui:view"
+            }
+        }
+        pane name="compose" size="30%" focus=true command="bash" {
+            args "-c" "exec mise run -C \"$CHAT_TUI_ROOT\" -q tui:compose"
+        }
+    }
+    pane size=1 borderless=true {
+        plugin location="zellij:compact-bar"
+    }
+}

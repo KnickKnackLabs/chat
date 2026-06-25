@@ -1,38 +1,72 @@
 #!/usr/bin/env bash
 #MISE description="Wait for a new message"
-#USAGE arg "[chat]" help="Chat name (default: $CHAT_CHANNEL or default)"
-#USAGE flag "--as <as>" help="Your identity — ignores own messages (default: $CHAT_IDENTITY)"
-#USAGE flag "--timeout <seconds>" help="Max seconds to wait (0 = forever)" default="120"
-#USAGE flag "--forever" help="Wait indefinitely (shorthand for --timeout 0)"
-#USAGE flag "--batch <batch>" help="Wait for N messages from others before waking (default: 1)" default="1"
+#USAGE arg "[chat]" default="" help="Chat name (default: $CHAT_CHANNEL or default)"
+#USAGE flag "--as <as>" default="" help="Your identity — ignores own messages (default: $CHAT_IDENTITY)"
+#USAGE flag "--by <by>" default="" help="Only wake on messages from this sender"
+#USAGE flag "--from <from>" default="" help="Alias for --by"
+#USAGE flag "--mention <identity>" default="" help="Only wake on messages mentioning @identity"
+#USAGE flag "--mentioned" default=#false help="Only wake on messages mentioning the waiting identity"
+#USAGE flag "--timeout <seconds>" default="120" help="Max seconds to wait (0 = forever)"
+#USAGE flag "--forever" default=#false help="Wait indefinitely (shorthand for --timeout 0)"
+#USAGE flag "--poll <seconds>" default="3" help="Polling interval in seconds"
+#USAGE flag "--batch <batch>" default="1" help="Wait for N matching messages before waking"
+#USAGE flag "--loop" default=#false help="Keep waiting after each matching batch"
 #USAGE example "chat wait --as alice" header="Wait for any new message"
 #USAGE example "chat wait ops --as alice" header="Wait for a message in a specific chat"
-#USAGE example "chat wait --as alice --timeout 60" header="Wait with a 60-second timeout"
-#USAGE example "chat wait --as alice --forever" header="Wait indefinitely"
+#USAGE example "chat wait --as alice --by or --mentioned --forever" header="Wait until Or mentions you"
+#USAGE example "chat wait --as alice --mention brownie --timeout 60" header="Wait up to 60 seconds for a mention"
 #USAGE example "chat wait --as alice --batch 3" header="Wait for 3 messages from others"
-set -eo pipefail
+set -euo pipefail
 
 source "$MISE_CONFIG_ROOT/lib/chat.sh"
 chat_resolve "${usage_chat:-}"
 chat_require_file
 
-# Identity optional for wait — but needed to ignore own messages
 chat_resolve_identity "${usage_as:-}"
 agent="$CHAT_IDENTITY"
-timeout="${usage_timeout:-120}"
-batch="${usage_batch:-1}"
-if ! [[ "$batch" =~ ^[1-9][0-9]*$ ]]; then
-  echo "Error: --batch must be a positive integer (got: $batch)" >&2
+
+by="${usage_by:-}"
+from_alias="${usage_from:-}"
+if [ -n "$by" ] && [ -n "$from_alias" ] && [ "$by" != "$from_alias" ]; then
+  echo "Error: use either --by or --from, not both." >&2
   exit 1
 fi
-# --forever overrides --timeout
+[ -n "$by" ] || by="$from_alias"
+
+mention="${usage_mention:-}"
+mentioned="${usage_mentioned:-false}"
+if [ "$mentioned" = "true" ]; then
+  if [ -z "$agent" ]; then
+    echo "Error: --mentioned requires an identity. Use --as <name> or set \$CHAT_IDENTITY." >&2
+    exit 1
+  fi
+  if [ -n "$mention" ] && [ "$mention" != "$agent" ]; then
+    echo "Error: use either --mention or --mentioned, not both." >&2
+    exit 1
+  fi
+  mention="$agent"
+fi
+
+timeout="${usage_timeout:-120}"
+poll="${usage_poll:-3}"
+batch="${usage_batch:-1}"
+loop="${usage_loop:-false}"
+
 if [ "${usage_forever:-false}" = "true" ]; then
   timeout=0
 fi
 
-# Use cursor (last-read position) instead of current line count.
-# This way we catch messages sent BEFORE wait started but AFTER
-# the agent's last `read`.
+case "$timeout" in
+  ''|*[!0-9]*) echo "Error: --timeout must be a non-negative integer (got: $timeout)" >&2; exit 1 ;;
+esac
+case "$poll" in
+  ''|*[!0-9]*) echo "Error: --poll must be a positive integer (got: $poll)" >&2; exit 1 ;;
+  0) echo "Error: --poll must be a positive integer (got: 0)" >&2; exit 1 ;;
+esac
+case "$batch" in
+  ''|0|*[!0-9]*) echo "Error: --batch must be a positive integer (got: $batch)" >&2; exit 1 ;;
+esac
+
 if [ -n "$agent" ]; then
   cursor=$(chat_get_cursor "$agent")
 else
@@ -40,105 +74,167 @@ else
 fi
 total=$(chat_line_count)
 
-# Edge case: cursor beyond file length (e.g., chat was truncated/cleared)
 if [ "$cursor" -gt "$total" ]; then
   cursor="$total"
 fi
 
-# Edge case: cursor=0 means agent has never read this chat.
-# Don't dump the entire history — start from current position.
 if [ -n "$agent" ] && [ "$cursor" -eq 0 ]; then
   cursor="$total"
   chat_set_cursor "$agent"
 fi
 
-# Count messages from senders other than the given agent.
-# Usage: _count_other_senders "content" "agent_name"
-# Prints the count to stdout.
 _count_other_senders() {
   local content="$1"
   local self="$2"
   local headers
-  headers=$(echo "$content" | grep '^### ') || headers=""
+  headers=$(printf '%s\n' "$content" | grep '^### ') || headers=""
   [ -z "$headers" ] && { echo "0"; return; }
   if [ -z "$self" ]; then
-    # no identity → count all messages
-    echo "$headers" | wc -l | tr -d ' '
+    printf '%s\n' "$headers" | wc -l | tr -d ' '
     return
   fi
   local count=0
+  local header sender
   while IFS= read -r header; do
-    local sender
-    sender=$(echo "$header" | sed -E 's/^### (.+) — .+$/\1/')
+    sender=$(printf '%s\n' "$header" | sed -E 's/^### (.+) — .+$/\1/')
     if [ "$sender" != "$self" ]; then
       count=$((count + 1))
     fi
-  done <<< "$headers"
+  done <<CHAT_HEADERS
+$headers
+CHAT_HEADERS
   echo "$count"
 }
 
-# Check whether content has enough messages from others to meet the batch threshold.
-# Usage: _has_enough_messages "content" "agent_name" batch_count
-# Returns 0 if count >= batch, 1 otherwise.
+_count_matching_messages() {
+  local content="$1"
+  local self="$2"
+  local sender_filter="$3"
+  local mention_filter="$4"
+
+  local awk_program
+  awk_program=$(cat <<'AWK'
+function has_mention(text, identity,    needle, start, pos, after) {
+  if (identity == "") return 1
+  needle = "@" identity
+  start = 1
+  while ((pos = index(substr(text, start), needle)) > 0) {
+    pos = start + pos - 1
+    after = substr(text, pos + length(needle), 1)
+    if (after == "" || after !~ /[[:alnum:]_.-]/) return 1
+    start = pos + length(needle)
+  }
+  return 0
+}
+function finish_message() {
+  if (!in_message) return
+  if (self != "" && sender == self) return
+  if (sender_filter != "" && sender != sender_filter) return
+  if (mention_filter != "" && !has_mention(body, mention_filter)) return
+  count++
+}
+/^### / {
+  finish_message()
+  in_message = 1
+  sender = $0
+  sub(/^### /, "", sender)
+  sub(/ — .*/, "", sender)
+  body = ""
+  next
+}
+in_message {
+  body = body $0 "\n"
+}
+END {
+  finish_message()
+  print count + 0
+}
+AWK
+)
+
+  awk \
+    -v self="$self" \
+    -v sender_filter="$sender_filter" \
+    -v mention_filter="$mention_filter" \
+    "$awk_program" <<CHAT_CONTENT
+$content
+CHAT_CONTENT
+}
+
 _has_enough_messages() {
   local content="$1"
   local self="$2"
-  local threshold="$3"
+  local sender_filter="$3"
+  local mention_filter="$4"
+  local threshold="$5"
   local count
-  count=$(_count_other_senders "$content" "$self")
+  count=$(_count_matching_messages "$content" "$self" "$sender_filter" "$mention_filter")
   [ "$count" -ge "$threshold" ]
 }
 
-# Check if there are already unread messages before we start polling
-if [ "$cursor" -lt "$total" ]; then
+print_wake() {
+  local content="$1"
+  echo "New messages:"
+  printf '%s\n' "$content" | chat_format_messages
+}
+
+check_once() {
+  local current_lines new_content
+  current_lines=$(chat_line_count)
+  if [ "$current_lines" -le "$cursor" ]; then
+    return 1
+  fi
+
   new_content=$(tail -n +"$((cursor + 1))" "$CHAT_FILE")
-
-  if _has_enough_messages "$new_content" "$agent" "$batch"; then
-    echo "New messages:"
-    echo "$new_content" | chat_format_messages
-    [ -n "$agent" ] && chat_set_cursor "$agent"
-    exit 0
+  if _has_enough_messages "$new_content" "$agent" "$by" "$mention" "$batch"; then
+    print_wake "$new_content"
+    if [ -n "$agent" ]; then
+      chat_set_cursor "$agent"
+      cursor=$(chat_get_cursor "$agent")
+    else
+      cursor="$current_lines"
+    fi
+    return 0
   fi
 
-  # Not enough messages yet (or only own) — advance cursor past own and continue
-  # Only advance if there are no other-sender messages at all (pure own messages).
-  # If there are some but not enough, keep cursor to accumulate toward batch.
   if [ "$(_count_other_senders "$new_content" "$agent")" -eq 0 ]; then
-    [ -n "$agent" ] && chat_set_cursor "$agent"
-    cursor="$total"
+    if [ -n "$agent" ]; then
+      chat_set_cursor "$agent"
+      cursor=$(chat_get_cursor "$agent")
+    else
+      cursor="$current_lines"
+    fi
   fi
+  return 1
+}
+
+if [ "$cursor" -lt "$total" ] && check_once; then
+  [ "$loop" = "true" ] || exit 0
 fi
+
+descriptor="messages in ${CHAT_NAME}"
+[ -n "$agent" ] && descriptor="$descriptor (ignoring own)"
+[ -n "$by" ] && descriptor="$descriptor from $by"
+[ -n "$mention" ] && descriptor="$descriptor mentioning @$mention"
+echo "Waiting for ${descriptor}... (timeout: ${timeout}s)"
 
 elapsed=0
-interval=3
-
-if [ -n "$agent" ]; then
-  echo "Waiting for messages in ${CHAT_NAME} (ignoring own)... (timeout: ${timeout}s)"
-else
-  echo "Waiting for messages in ${CHAT_NAME}... (timeout: ${timeout}s)"
-fi
-
 while true; do
-  current_lines=$(chat_line_count)
-
-  if [ "$current_lines" -gt "$cursor" ]; then
-    new_content=$(tail -n +"$((cursor + 1))" "$CHAT_FILE")
-
-    if _has_enough_messages "$new_content" "$agent" "$batch"; then
-      echo ""
-      echo "New messages:"
-      echo "$new_content" | chat_format_messages
-      [ -n "$agent" ] && chat_set_cursor "$agent"
+  if check_once; then
+    if [ "$loop" != "true" ]; then
       exit 0
     fi
+    echo ""
+    echo "Waiting for next matching batch..."
+    elapsed=0
   fi
 
   if [ "$timeout" -gt 0 ] && [ "$elapsed" -ge "$timeout" ]; then
     echo ""
-    echo "Timed out after ${timeout}s — no new messages."
+    echo "Timed out after ${timeout}s — no matching messages."
     exit 1
   fi
 
-  sleep "$interval"
-  elapsed=$((elapsed + interval))
+  sleep "$poll"
+  elapsed=$((elapsed + poll))
 done

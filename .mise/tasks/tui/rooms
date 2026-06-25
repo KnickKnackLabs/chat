@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+#MISE description="Select the active room for chat tui"
+#USAGE flag "--print" default=#false help="Print selectable rooms once instead of opening fzf"
+set -euo pipefail
+
+root="$MISE_CONFIG_ROOT"
+# shellcheck source=lib/tui/common.sh
+source "$root/lib/tui/common.sh"
+
+print_once="${usage_print:-false}"
+chat_tui_ensure_state
+
+try_clear() {
+  if ! clear 2>/dev/null; then
+    : # clear can fail when TERM is missing or unsupported
+  fi
+}
+
+while true; do
+  identity="$(chat_tui_current_identity)"
+  current="$(chat_tui_current_channel)"
+  tmp="$(mktemp "${TMPDIR:-/tmp}/chat-tui-rooms.XXXXXX")"
+  err="$tmp.err"
+  trap 'rm -f "$tmp" "$err"' EXIT
+
+  if ! chat_tui_clean list --json --as "$identity" > "$tmp" 2> "$err"; then
+    try_clear
+    printf 'chat list failed for identity %s:\n' "$identity" >&2
+    cat "$err" >&2
+    rm -f "$tmp" "$err"
+    trap - EXIT
+    sleep 3
+    continue
+  fi
+
+  rooms="$(
+    jq -r --arg current "$current" '
+      .[]
+      | if .name == $current then "▶ " + .name else "  " + .name end
+    ' "$tmp"
+  )"
+
+  if [ "$print_once" = "true" ]; then
+    printf '%s\n' "$rooms"
+    rm -f "$tmp" "$err"
+    trap - EXIT
+    exit 0
+  fi
+
+  if ! selection="$(
+    printf '%s\n' "$rooms" |
+      fzf \
+        --no-border \
+        --layout=reverse \
+        --prompt="" \
+        --header="Select chat room (Enter). Ctrl-C quits picker."
+  )"; then
+    printf 'room picker exited\n'
+    exit 0
+  fi
+
+  channel="$(printf '%s\n' "$selection" | sed 's/^▶ //; s/^  //')"
+  if [ -n "$channel" ]; then
+    chat_tui_write_state channel "$channel"
+    if command -v gum >/dev/null 2>&1; then
+      chat_tui_gum style --foreground 46 -- "selected #$channel"
+    else
+      printf 'selected #%s\n' "$channel"
+    fi
+  fi
+
+  rm -f "$tmp" "$err"
+  trap - EXIT
+done

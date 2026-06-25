@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "fs";
+import { existsSync, readFileSync, readdirSync } from "fs";
 import { join } from "path";
 
 export interface MiseCommand {
@@ -38,8 +38,16 @@ function stringAttr(attrs: UsageAttrs, key: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-function parseMiseTask(taskDir: string, filename: string): MiseCommand {
-  const src = readFileSync(join(taskDir, filename), "utf-8");
+function taskNameFromPath(relativePath: string): string {
+  const parts = relativePath.split("/");
+  if (parts[parts.length - 1] === "_default") {
+    parts.pop();
+  }
+  return parts.join(":");
+}
+
+function parseMiseTask(taskDir: string, relativePath: string, name = taskNameFromPath(relativePath)): MiseCommand {
+  const src = readFileSync(join(taskDir, relativePath), "utf-8");
   const lines = src.split("\n");
 
   const desc = lines.find(l => l.startsWith("#MISE description="))
@@ -82,13 +90,35 @@ function parseMiseTask(taskDir: string, filename: string): MiseCommand {
     }
   }
 
-  return { name: filename, description: desc, flags, args, hidden };
+  return { name, description: desc, flags, args, hidden };
 }
 
 export function parseMiseTasks(taskDir: string): MiseCommand[] {
-  return readdirSync(taskDir, { withFileTypes: true })
-    .filter(entry => entry.isFile() && !entry.name.startsWith(".") && !entry.name.startsWith("_"))
-    .map(entry => parseMiseTask(taskDir, entry.name))
+  function collect(relativeDir = ""): MiseCommand[] {
+    const dir = join(taskDir, relativeDir);
+    const commands: MiseCommand[] = [];
+
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name.startsWith(".")) continue;
+
+      const relativePath = relativeDir ? join(relativeDir, entry.name) : entry.name;
+      if (entry.isFile() && !entry.name.startsWith("_")) {
+        commands.push(parseMiseTask(taskDir, relativePath));
+      }
+
+      if (entry.isDirectory() && !entry.name.startsWith("_")) {
+        const defaultTask = join(relativePath, "_default");
+        if (existsSync(join(taskDir, defaultTask))) {
+          commands.push(parseMiseTask(taskDir, defaultTask));
+        }
+        commands.push(...collect(relativePath));
+      }
+    }
+
+    return commands;
+  }
+
+  return collect()
     .filter(command => !command.hidden)
     .sort((a, b) => a.name.localeCompare(b.name));
 }

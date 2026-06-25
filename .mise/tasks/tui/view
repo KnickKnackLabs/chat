@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+#MISE description="Render the live message pane for chat tui"
+#USAGE flag "--once" default=#false help="Render once and exit instead of polling"
+set -euo pipefail
+
+root="$MISE_CONFIG_ROOT"
+# shellcheck source=lib/tui/common.sh
+source "$root/lib/tui/common.sh"
+
+once="${usage_once:-false}"
+last="${CHAT_TUI_LAST:-80}"
+poll="${CHAT_TUI_POLL:-2}"
+chat_tui_ensure_state
+
+hash_file() {
+  cksum "$1" | awk '{print $1":"$2}'
+}
+
+try_tput() {
+  if ! tput "$@" 2>/dev/null; then
+    : # terminal capability may be unavailable in non-interactive panes/tests
+  fi
+}
+
+try_clear() {
+  if ! clear 2>/dev/null; then
+    : # clear can fail when TERM is missing or unsupported
+  fi
+}
+
+render_once() {
+  local channel="$1"
+  local identity="$2"
+
+  if command -v gum >/dev/null 2>&1; then
+    chat_tui_gum style --bold --foreground 212 -- "chat:$channel as:$identity"
+    chat_tui_gum style --foreground 240 -- "peek-reading last $last messages · refresh ${poll}s · terminal autowrap off · Ctrl-C exits this pane"
+  else
+    printf 'chat:%s as:%s\n' "$channel" "$identity"
+    printf 'peek-reading last %s messages · refresh %ss · terminal autowrap off · Ctrl-C exits this pane\n' "$last" "$poll"
+  fi
+  printf '\n'
+
+  if json="$(chat_tui_clean read "$channel" --as "$identity" --peek --all --last "$last" --json --id 2>&1)"; then
+    if [ -n "$json" ]; then
+      printf '%s\n' "$json" | "$root/lib/tui/render-messages"
+    fi
+  else
+    printf 'chat read failed:\n%s\n' "$json" >&2
+  fi
+
+  printf '\n'
+  if command -v gum >/dev/null 2>&1; then
+    chat_tui_gum style --foreground 240 -- "state: $(chat_tui_state_path channel)"
+  else
+    printf 'state: %s\n' "$(chat_tui_state_path channel)"
+  fi
+}
+
+tmp="$(mktemp "${TMPDIR:-/tmp}/chat-tui-view.XXXXXX")"
+cleanup() {
+  rm -f "$tmp"
+  try_tput smam
+  try_tput cnorm
+}
+trap cleanup EXIT INT TERM
+
+last_hash=""
+try_tput civis
+try_tput rmam
+try_clear
+
+while true; do
+  channel="$(chat_tui_current_channel)"
+  identity="$(chat_tui_current_identity)"
+
+  if render_once "$channel" "$identity" > "$tmp"; then
+    hash="$(hash_file "$tmp")"
+    if [ "$hash" != "$last_hash" ]; then
+      try_tput cup 0 0
+      cat "$tmp"
+      try_tput ed
+      last_hash="$hash"
+    fi
+  else
+    try_tput cup 0 0
+    printf 'view render failed\n'
+    try_tput ed
+  fi
+
+  if [ "$once" = "true" ]; then
+    exit 0
+  fi
+
+  sleep "$poll"
+done

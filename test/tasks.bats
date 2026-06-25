@@ -608,7 +608,7 @@ for c in channels:
   local newer_file="$CHAT_DATA_DIR/newer-chat.md"
   mkdir -p "$CHAT_DATA_DIR/.cursors/older-chat" "$CHAT_DATA_DIR/.cursors/newer-chat"
 
-  cat > "$older_file" <<'EOF'
+  cat > "$older_file" <<'OLDER_CHAT'
 # older-chat
 
 ---
@@ -616,9 +616,9 @@ for c in channels:
 ### alice — 2025-01-01 10:00
 
 old message
-EOF
+OLDER_CHAT
 
-  cat > "$newer_file" <<'EOF'
+  cat > "$newer_file" <<'NEWER_CHAT'
 # newer-chat
 
 ---
@@ -626,7 +626,7 @@ EOF
 ### bob — 2026-03-25 10:00
 
 new message
-EOF
+NEWER_CHAT
 
   run chat list
   [ "$status" -eq 0 ]
@@ -1044,6 +1044,166 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
   [ "$status" -eq 0 ]
   [[ "$output" == *"chat cursor:undo --as alice"* ]]
   [[ "$output" != *"chat cursor undo"* ]]
+}
+
+# ============================================================================
+# wait task
+# ============================================================================
+
+@test "task wait: --by gates on sender and prints unseen context" {
+  mark_read "alice"
+  send_message "bob" "context before gate"
+  send_message "or" "gate from or"
+
+  run chat wait test-chat --as alice --by or --timeout 1 --poll 1
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"context before gate"* ]]
+  [[ "$output" == *"gate from or"* ]]
+}
+
+@test "task wait: --from is an alias for --by" {
+  mark_read "alice"
+  send_message "or" "from alias gate"
+
+  run chat wait test-chat --as alice --from or --timeout 1 --poll 1
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"from alias gate"* ]]
+}
+
+@test "task wait: --by times out when sender does not match" {
+  mark_read "alice"
+  send_message "bob" "not from or"
+
+  run chat wait test-chat --as alice --by or --timeout 1 --poll 1
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Timed out"* ]]
+  [[ "$output" == *"no matching messages"* ]]
+}
+
+@test "task wait: --mentioned gates on waiting identity mention" {
+  mark_read "alice"
+  send_message "bob" "context before mention"
+  send_message "or" "hey @alice"
+
+  run chat wait test-chat --as alice --mentioned --timeout 1 --poll 1
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"context before mention"* ]]
+  [[ "$output" == *"hey @alice"* ]]
+}
+
+@test "task wait: --mentioned requires identity" {
+  unset CHAT_IDENTITY
+  run chat wait test-chat --mentioned --timeout 1 --poll 1
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"--mentioned requires an identity"* ]]
+}
+
+@test "task wait: --mention gates on explicit mention" {
+  mark_read "alice"
+  send_message "bob" "hello @carol"
+
+  run chat wait test-chat --as alice --mention carol --timeout 1 --poll 1
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"hello @carol"* ]]
+}
+
+@test "task wait: --mentioned does not prefix-match longer identities" {
+  mark_read "ann"
+  send_message "bob" "hello @anna"
+
+  run chat wait test-chat --as ann --mentioned --timeout 1 --poll 1
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Timed out"* ]]
+}
+
+@test "task wait: --mentioned accepts punctuation-delimited mention" {
+  mark_read "ann"
+  send_message "bob" "hello @ann, please look"
+
+  run chat wait test-chat --as ann --mentioned --timeout 1 --poll 1
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"hello @ann, please look"* ]]
+}
+
+# ============================================================================
+# tui task
+# ============================================================================
+
+@test "task tui: --dry-run prepares state without attaching" {
+  run chat tui test-chat --as alice --session test-ui --dry-run
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"prepared chat tui session test-ui"* ]]
+  [[ "$output" == *"pane_tasks=tui:rooms,tui:view,tui:compose"* ]]
+  [[ "$output" == *"command=zellij attach"* ]]
+  [ "$(cat "$CHAT_DATA_DIR/.tui/test-ui/channel")" = "test-chat" ]
+  [ "$(cat "$CHAT_DATA_DIR/.tui/test-ui/identity")" = "alice" ]
+}
+
+@test "task tui: requires identity" {
+  unset CHAT_IDENTITY
+  run chat tui test-chat --dry-run
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"identity required"* ]]
+}
+
+@test "task tui: fails on non-existent channel" {
+  run chat tui no-such-channel --as alice --dry-run
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"does not exist"* ]]
+}
+
+@test "task tui: pane tasks can be evaluated independently" {
+  send_message "bob" "pane render"
+  run chat tui test-chat --as alice --session test-ui --dry-run
+  [ "$status" -eq 0 ]
+
+  export CHAT_TUI_ROOT="$CHAT_REPO_ROOT"
+  export CHAT_TUI_STATE_DIR="$CHAT_DATA_DIR/.tui/test-ui"
+  export CHAT_TUI_LAST=5
+  export CHAT_TUI_POLL=1
+
+  run chat tui:rooms --print
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"▶ test-chat"* ]]
+
+  run chat tui:view --once
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"chat:test-chat as:alice"* ]]
+  [[ "$output" == *"pane render"* ]]
+
+  run chat tui:compose --dry-run
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"compose"* ]]
+  [[ "$output" == *"test-chat"* ]]
+}
+
+@test "task tui: pane tasks do not leak clear errors without TERM" {
+  send_message "bob" "pane render"
+  run chat tui test-chat --as alice --session test-ui --dry-run
+  [ "$status" -eq 0 ]
+
+  export CHAT_TUI_ROOT="$CHAT_REPO_ROOT"
+  export CHAT_TUI_STATE_DIR="$CHAT_DATA_DIR/.tui/test-ui"
+  export CHAT_TUI_LAST=5
+  export CHAT_TUI_POLL=1
+
+  TERM= run chat tui:view --once
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"pane render"* ]]
+  [[ "$output" != *"unknown terminal type"* ]]
+  [[ "$output" != *"TERM environment variable not set"* ]]
+
+  TERM= run chat tui:compose --dry-run
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"compose"* ]]
+  [[ "$output" != *"unknown terminal type"* ]]
+  [[ "$output" != *"TERM environment variable not set"* ]]
+}
+
+@test "task tui: README documents independently runnable pane tasks" {
+  grep -q '^### chat tui:rooms$' "$CHAT_REPO_ROOT/README.md"
+  grep -q '^### chat tui:view$' "$CHAT_REPO_ROOT/README.md"
+  grep -q '^### chat tui:compose$' "$CHAT_REPO_ROOT/README.md"
 }
 
 # ============================================================================

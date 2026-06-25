@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+jq -r '
+  .[]
+  | (.id // "") as $id
+  | "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+    + ((.timestamp // "") + "  " + (.sender // "?") + (if $id == "" then "" else "  " + $id end) + "\n")
+    + ((.body // "") + "\n")
+'
