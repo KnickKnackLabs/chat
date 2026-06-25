@@ -1107,6 +1107,24 @@ assert 'unread' not in data, f'unread should not be present without --as, got: {
   [[ "$output" == *"hello @carol"* ]]
 }
 
+@test "task wait: --mentioned does not prefix-match longer identities" {
+  mark_read "ann"
+  send_message "bob" "hello @anna"
+
+  run chat wait test-chat --as ann --mentioned --timeout 1 --poll 1
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Timed out"* ]]
+}
+
+@test "task wait: --mentioned accepts punctuation-delimited mention" {
+  mark_read "ann"
+  send_message "bob" "hello @ann, please look"
+
+  run chat wait test-chat --as ann --mentioned --timeout 1 --poll 1
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"hello @ann, please look"* ]]
+}
+
 # ============================================================================
 # tui task
 # ============================================================================
