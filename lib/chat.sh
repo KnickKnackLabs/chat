@@ -66,13 +66,13 @@ chat_require_file() {
 chat_init() {
   mkdir -p "$CHAT_DATA_DIR" "$CHAT_CURSOR_DIR"
   if [ ! -f "$CHAT_FILE" ]; then
-    cat > "$CHAT_FILE" <<EOF
+    cat > "$CHAT_FILE" <<CHAT_FILE_TEMPLATE
 # ${CHAT_NAME}
 
 Shared communication channel. Keep messages short (<10 lines). For longer content, write to \`/tmp/chat-attachment-<timestamp>.md\` and reference it here.
 
 ---
-EOF
+CHAT_FILE_TEMPLATE
   fi
 }
 
@@ -163,12 +163,12 @@ chat_append() {
   local ts
   ts=$(chat_timestamp)
 
-  cat >> "$CHAT_FILE" <<EOF
+  cat >> "$CHAT_FILE" <<CHAT_MESSAGE
 
 ### ${from} — ${ts}
 
 ${message}
-EOF
+CHAT_MESSAGE
 }
 
 # Get new messages since cursor for an agent

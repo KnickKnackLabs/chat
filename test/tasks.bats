@@ -608,7 +608,7 @@ for c in channels:
   local newer_file="$CHAT_DATA_DIR/newer-chat.md"
   mkdir -p "$CHAT_DATA_DIR/.cursors/older-chat" "$CHAT_DATA_DIR/.cursors/newer-chat"
 
-  cat > "$older_file" <<'EOF'
+  cat > "$older_file" <<'OLDER_CHAT'
 # older-chat
 
 ---
@@ -616,9 +616,9 @@ for c in channels:
 ### alice — 2025-01-01 10:00
 
 old message
-EOF
+OLDER_CHAT
 
-  cat > "$newer_file" <<'EOF'
+  cat > "$newer_file" <<'NEWER_CHAT'
 # newer-chat
 
 ---
@@ -626,7 +626,7 @@ EOF
 ### bob — 2026-03-25 10:00
 
 new message
-EOF
+NEWER_CHAT
 
   run chat list
   [ "$status" -eq 0 ]

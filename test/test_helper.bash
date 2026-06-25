@@ -62,7 +62,7 @@ _setup_mock_blobs() {
   export BLOBS_LOG="$BATS_TEST_TMPDIR/blobs.log"
   export BLOBS_STDIN="$BATS_TEST_TMPDIR/blobs.stdin"
   export BLOBS="$BATS_TEST_TMPDIR/blobs"
-  cat > "$BLOBS" <<'EOF'
+  cat > "$BLOBS" <<'BLOBS_MOCK'
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$*" >> "$BLOBS_LOG"
@@ -72,7 +72,7 @@ if [ "$1" = "put" ]; then
 fi
 echo "unexpected blobs invocation: $*" >&2
 exit 1
-EOF
+BLOBS_MOCK
   chmod +x "$BLOBS"
 }
 

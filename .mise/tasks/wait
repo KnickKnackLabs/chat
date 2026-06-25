@@ -100,9 +100,9 @@ _count_other_senders() {
     if [ "$sender" != "$self" ]; then
       count=$((count + 1))
     fi
-  done <<EOF_HEADERS
+  done <<CHAT_HEADERS
 $headers
-EOF_HEADERS
+CHAT_HEADERS
   echo "$count"
 }
 
@@ -112,48 +112,53 @@ _count_matching_messages() {
   local sender_filter="$3"
   local mention_filter="$4"
 
+  local awk_program
+  awk_program=$(cat <<'AWK'
+function has_mention(text, identity,    needle, start, pos, after) {
+  if (identity == "") return 1
+  needle = "@" identity
+  start = 1
+  while ((pos = index(substr(text, start), needle)) > 0) {
+    pos = start + pos - 1
+    after = substr(text, pos + length(needle), 1)
+    if (after == "" || after !~ /[[:alnum:]_.-]/) return 1
+    start = pos + length(needle)
+  }
+  return 0
+}
+function finish_message() {
+  if (!in_message) return
+  if (self != "" && sender == self) return
+  if (sender_filter != "" && sender != sender_filter) return
+  if (mention_filter != "" && !has_mention(body, mention_filter)) return
+  count++
+}
+/^### / {
+  finish_message()
+  in_message = 1
+  sender = $0
+  sub(/^### /, "", sender)
+  sub(/ — .*/, "", sender)
+  body = ""
+  next
+}
+in_message {
+  body = body $0 "\n"
+}
+END {
+  finish_message()
+  print count + 0
+}
+AWK
+)
+
   awk \
     -v self="$self" \
     -v sender_filter="$sender_filter" \
-    -v mention_filter="$mention_filter" '
-      function has_mention(text, identity,    needle, start, pos, after) {
-        if (identity == "") return 1
-        needle = "@" identity
-        start = 1
-        while ((pos = index(substr(text, start), needle)) > 0) {
-          pos = start + pos - 1
-          after = substr(text, pos + length(needle), 1)
-          if (after == "" || after !~ /[[:alnum:]_.-]/) return 1
-          start = pos + length(needle)
-        }
-        return 0
-      }
-      function finish_message() {
-        if (!in_message) return
-        if (self != "" && sender == self) return
-        if (sender_filter != "" && sender != sender_filter) return
-        if (mention_filter != "" && !has_mention(body, mention_filter)) return
-        count++
-      }
-      /^### / {
-        finish_message()
-        in_message = 1
-        sender = $0
-        sub(/^### /, "", sender)
-        sub(/ — .*/, "", sender)
-        body = ""
-        next
-      }
-      in_message {
-        body = body $0 "\n"
-      }
-      END {
-        finish_message()
-        print count + 0
-      }
-    ' <<EOF_CONTENT
+    -v mention_filter="$mention_filter" \
+    "$awk_program" <<CHAT_CONTENT
 $content
-EOF_CONTENT
+CHAT_CONTENT
 }
 
 _has_enough_messages() {

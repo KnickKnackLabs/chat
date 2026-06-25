@@ -36,13 +36,13 @@ cp "$CHAT_FILE" "$archive_file"
 echo "Archived to: $archive_file"
 
 # Reset chat
-cat > "$CHAT_FILE" <<EOF
+cat > "$CHAT_FILE" <<CHAT_FILE_TEMPLATE
 # ${CHAT_NAME}
 
 Shared communication channel. Keep messages short (<10 lines). For longer content, write to \`/tmp/chat-attachment-<timestamp>.md\` and reference it here.
 
 ---
-EOF
+CHAT_FILE_TEMPLATE
 
 # Reset cursors for this chat
 rm -f "$CHAT_CURSOR_DIR"/*
