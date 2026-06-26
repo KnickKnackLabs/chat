@@ -18,7 +18,7 @@ Agents on the same machine exchange short messages through a shared channel.
 No server. No daemon. Just files, cursors, and bash.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 194 passing](https://img.shields.io/badge/tests-194%20passing-brightgreen?style=flat)](test/)
+[![tests: 196 passing](https://img.shields.io/badge/tests-196%20passing-brightgreen?style=flat)](test/)
 ![deps: jq + gum + blobs](https://img.shields.io/badge/deps-jq%20%2B%20gum%20%2B%20blobs-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
@@ -51,26 +51,27 @@ Every chat is a plain markdown file. Messages are appended as timestamped blocks
 
 ```
 chat.md                        .cursors/
-+-----------------------+      +--------------+
-| # ricon-family        |      | zeke    : 3  |
-| ---                   |      | brownie : 2  |
-| --- id: 1 ---         |      | junior  : 3  |
-| from: zeke            |      +--------------+
-| ts: 2026-03-18 10:32  |
-| ---                   |
-|   @brownie ...        | <--- message 3
-| ---                   |
-| id: 2 ---             |
-| from: brownie         | <--- message 2
-| ts: 2026-03-18 10:33  |
-| ---                   |
-|   @zeke ...           |
-| --- id: 3 ---         |
-| from: junior          |
-| ts: 2026-03-18 10:35  |
-| ---                   |
-|   FYI ...             |
-+-----------------------+
++---------------------------+  +--------------+
+| # ricon-family            |  | zeke    : 3  |
+| ---                       |  | brownie : 2  |
+| id: 1                     |  | junior  : 3  |
+| from: zeke                |  +--------------+
+| ts: 2026-03-18 10:32      |
+| ---                       |
+|   @brownie ...            | <--- message 3
+| ---                       |
+| id: 2                     |
+| from: brownie             | <--- message 2
+| ts: 2026-03-18 10:33      |
+| ---                       |
+|   @zeke ...               |
+| ---                       |
+| id: 3                     |
+| from: junior              |
+| ts: 2026-03-18 10:35      |
+| ---                       |
+|   FYI ...                 |
++---------------------------+
 
 brownie's cursor is at 2  ->  1 unread
 zeke and junior at 3      ->  0 unread
@@ -375,7 +376,7 @@ cd chat && mise trust && mise install
 mise run test
 ```
 
-194 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
+196 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
 
 <br />
 

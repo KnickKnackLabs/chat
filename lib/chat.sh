@@ -95,19 +95,17 @@ chat_message_count() {
 
 # Value of a frontmatter field on the last message of a file ("" if none).
 # Usage: chat_last_field <file> <field>   (field is one of from|ts|to|id|src)
+# Propagates errors from the Python parser (malformed files, etc.).
 chat_last_field() {
   local file="$1" field="$2"
-  if ! uv run --script "$CHAT_REPO_ROOT/lib/chat_query.py" "$file" --last-field "$field" 2>/dev/null; then
-    return 0
-  fi
+  uv run --script "$CHAT_REPO_ROOT/lib/chat_query.py" "$file" --last-field "$field" 2>/dev/null
 }
 
 # Unique, lowercase, sorted list of senders in a file (one per line).
+# Propagates errors from the Python parser (malformed files, etc.).
 chat_participants() {
   local file="$1"
-  if ! uv run --script "$CHAT_REPO_ROOT/lib/chat_query.py" "$file" --participants 2>/dev/null; then
-    return 0
-  fi
+  uv run --script "$CHAT_REPO_ROOT/lib/chat_query.py" "$file" --participants 2>/dev/null
 }
 
 # Get the cursor (index of the last-read message) for an agent
@@ -274,6 +272,12 @@ _chat_trim_trailing_newlines() {
 
 # Render frontmatter-block messages (from stdin) for display using gum.
 # Falls back to plain passthrough when gum is unavailable.
+#
+# NOTE: This Bash state-machine scanner implements the same disambiguation
+# rule as lib/parse.py (_is_block_open): a ``---`` opens a frontmatter
+# block only when the next line matches ``^(id|from|ts):``.  If the two
+# implementations ever diverge, rendering will disagree with message
+# counting.  Keep in sync with parse.py's _is_block_open().
 chat_format_messages() {
   if ! command -v gum &>/dev/null; then
     cat
