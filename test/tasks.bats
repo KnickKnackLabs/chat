@@ -1262,8 +1262,48 @@ GUM_MOCK
   run chat tui:view --once
   [ "$status" -eq 0 ]
   [[ "$output" == *"wrap width 72"* ]]
-  [[ "$output" == *$'routing, \nfamily isolation'* ]]
+  [[ "$output" == *$'routing,\nfamily isolation'* ]]
   [[ "$output" == *"mixing in model quality."* ]]
+}
+
+@test "task tui: view justifies prose when requested" {
+  long_msg="alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu"
+  send_message "bob" "$long_msg"
+  run chat tui test-chat --as alice --session test-ui --wrap-width 40 --justify --dry-run
+  [ "$status" -eq 0 ]
+
+  export CHAT_TUI_ROOT="$CHAT_REPO_ROOT"
+  export CHAT_TUI_STATE_DIR="$CHAT_DATA_DIR/.tui/test-ui"
+  export CHAT_TUI_LAST=5
+  export CHAT_TUI_POLL=1
+  export CHAT_TUI_WRAP_WIDTH=40
+  export CHAT_TUI_JUSTIFY=true
+
+  run chat tui:view --once
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"justify true"* ]]
+  [[ "$output" == *"alpha  beta gamma delta epsilon zeta eta"* ]]
+  [[ "$output" == *"theta iota kappa lambda mu"* ]]
+}
+
+@test "task tui: view leaves markdown-ish lines ragged while justifying prose" {
+  msg=$'- bullet one has enough words to exceed the width significantly\nplain prose after bullet should wrap and justify nicely enough'
+  send_message "bob" "$msg"
+  run chat tui test-chat --as alice --session test-ui --wrap-width 40 --justify --dry-run
+  [ "$status" -eq 0 ]
+
+  export CHAT_TUI_ROOT="$CHAT_REPO_ROOT"
+  export CHAT_TUI_STATE_DIR="$CHAT_DATA_DIR/.tui/test-ui"
+  export CHAT_TUI_LAST=5
+  export CHAT_TUI_POLL=1
+  export CHAT_TUI_WRAP_WIDTH=40
+  export CHAT_TUI_JUSTIFY=true
+
+  run chat tui:view --once
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"- bullet one has enough words to exceed the width significantly"* ]]
+  [[ "$output" == *"plain prose after bullet should wrap and"* ]]
+  [[ "$output" == *"justify nicely enough"* ]]
 }
 
 @test "task tui: rejects invalid wrap width" {
