@@ -41,15 +41,55 @@ class WrappingTest(unittest.TestCase):
             ],
         )
 
-    def test_preserves_markdownish_lines(self) -> None:
+    def test_wraps_bullets_with_hanging_indent(self) -> None:
         body = "- bullet one has enough words to exceed the width significantly\nplain prose after bullet should wrap and justify nicely enough"
 
         self.assertEqual(
-            render_body(body, width=40, justify=True),
+            render_body(body, width=40, justify=True, justify_style="greedy"),
             [
-                "- bullet one has enough words to exceed the width significantly",
+                "- bullet  one has enough words to exceed",
+                "  the width significantly",
                 "plain prose after bullet should wrap and",
                 "justify nicely enough",
+            ],
+        )
+
+    def test_wraps_numbered_items_with_hanging_indent(self) -> None:
+        body = "1. first, we need to restart your sessions so you can start using the rewind functionality that brownie recently introduced."
+
+        self.assertEqual(
+            render_body(body, width=60, justify=True),
+            [
+                "1. first,  we  need  to  restart  your  sessions  so you can",
+                "   start   using   the  rewind  functionality  that  brownie",
+                "   recently introduced.",
+            ],
+        )
+
+    def test_indented_lines_continue_list_items(self) -> None:
+        body = "1. first, we need to restart your sessions so you can start using\n   that brownie recently introduced and now continues under the same list item nicely."
+
+        self.assertEqual(
+            render_body(body, width=60, justify=True),
+            [
+                "1. first,  we need to restart your sessions so you can start",
+                "   using  that brownie recently introduced and now continues",
+                "   under the same list item nicely.",
+            ],
+        )
+
+    def test_adjacent_list_items_get_a_blank_line(self) -> None:
+        body = "1. first, we need to restart your sessions so you can start using the rewind functionality that brownie recently introduced.\n2. c0da, i would like for you to take the next pass at development while quick fixes chat tui."
+
+        self.assertEqual(
+            render_body(body, width=60, justify=True),
+            [
+                "1. first,  we  need  to  restart  your  sessions  so you can",
+                "   start   using   the  rewind  functionality  that  brownie",
+                "   recently introduced.",
+                "",
+                "2. c0da,  i  would  like  for  you  to take the next pass at",
+                "   development while quick fixes chat tui.",
             ],
         )
 

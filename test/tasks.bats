@@ -1317,7 +1317,7 @@ GUM_MOCK
   [[ "$output" == *'`shiv:sms listen --json`,'* ]]
 }
 
-@test "task tui: view leaves markdown-ish lines ragged while justifying prose" {
+@test "task tui: view wraps bullets with hanging indent" {
   msg=$'- bullet one has enough words to exceed the width significantly\nplain prose after bullet should wrap and justify nicely enough'
   send_message "bob" "$msg"
   run chat tui test-chat --as alice --session test-ui --wrap-width 40 --justify --justify-style greedy --no-header-separator --message-padding 0 --dry-run
@@ -1335,9 +1335,33 @@ GUM_MOCK
 
   run chat tui:view --once
   [ "$status" -eq 0 ]
-  [[ "$output" == *"- bullet one has enough words to exceed the width significantly"* ]]
+  [[ "$output" == *"- bullet  one has enough words to exceed"* ]]
+  [[ "$output" == *"  the width significantly"* ]]
   [[ "$output" == *"plain prose after bullet should wrap and"* ]]
   [[ "$output" == *"justify nicely enough"* ]]
+}
+
+@test "task tui: view wraps numbered items with hanging indent" {
+  msg=$'1. first, we need to restart your sessions so you can start using the rewind functionality that brownie recently introduced.\n2. c0da, i would like for you to take the next pass at development while quick fixes chat tui.'
+  send_message "bob" "$msg"
+  run chat tui test-chat --as alice --session test-ui --wrap-width 60 --no-header-separator --message-padding 0 --color never --dry-run
+  [ "$status" -eq 0 ]
+
+  export CHAT_TUI_ROOT="$CHAT_REPO_ROOT"
+  export CHAT_TUI_STATE_DIR="$CHAT_DATA_DIR/.tui/test-ui"
+  export CHAT_TUI_LAST=5
+  export CHAT_TUI_POLL=1
+  export CHAT_TUI_WRAP_WIDTH=60
+  export CHAT_TUI_HEADER_SEPARATOR=false
+  export CHAT_TUI_MESSAGE_PADDING=0
+  export CHAT_TUI_COLOR=never
+
+  run chat tui:view --once
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"1. first,"* ]]
+  [[ "$output" == *$'\n   start   using'* ]]
+  [[ "$output" == *$'\n   recently introduced.\n\n2. c0da,'* ]]
+  [[ "$output" == *$'\n   development while quick fixes chat tui.'* ]]
 }
 
 @test "task tui: view can show metadata above a full-width separator" {

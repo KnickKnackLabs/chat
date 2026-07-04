@@ -7,6 +7,11 @@ import re
 from typing import Iterable
 
 CODE_SPAN_OR_WORD = re.compile(r"`[^`]*`[.,;:!?)]*|\S+")
+LIST_ITEM_RE = re.compile(r"^(\s*)((?:[-*+]|\d+[.)])\s+)(.*)$")
+
+
+def is_list_item(line: str) -> bool:
+    return LIST_ITEM_RE.match(line) is not None
 
 
 def is_markdownish(line: str) -> bool:
@@ -15,9 +20,22 @@ def is_markdownish(line: str) -> bool:
         return False
     if line.startswith((" ", "\t")):
         return True
-    if stripped.startswith(("```", "~~~", ">", "#", "- ", "* ", "+ ")):
+    if stripped.startswith(("```", "~~~", ">", "#")):
         return True
-    if re.match(r"^\d+[.)]\s", stripped):
+    if "|" in stripped:
+        return True
+    if re.search(r"https?://\S+", stripped):
+        return True
+    return False
+
+
+def is_list_boundary(line: str) -> bool:
+    stripped = line.strip()
+    if not stripped:
+        return True
+    if is_list_item(line):
+        return True
+    if stripped.startswith(("```", "~~~", ">", "#")):
         return True
     if "|" in stripped:
         return True
@@ -178,6 +196,31 @@ def render_prose(
     return lines
 
 
+def render_list_item(
+    prefix: str,
+    text: str,
+    *,
+    width: int,
+    justify: bool,
+    justify_style: str,
+) -> list[str]:
+    content_width = max(1, width - len(prefix))
+    content_lines = render_prose(
+        text,
+        width=content_width,
+        justify=justify,
+        justify_style=justify_style,
+    )
+    if not content_lines:
+        return [prefix.rstrip()]
+
+    continuation = " " * len(prefix)
+    return [
+        f"{prefix}{content_lines[0]}",
+        *(f"{continuation}{line}" for line in content_lines[1:]),
+    ]
+
+
 def render_body(
     body: str,
     *,
@@ -187,6 +230,8 @@ def render_body(
 ) -> list[str]:
     output: list[str] = []
     paragraph: list[str] = []
+    list_prefix = ""
+    list_lines: list[str] = []
 
     def flush_paragraph() -> None:
         if not paragraph:
@@ -201,18 +246,53 @@ def render_body(
         )
         paragraph.clear()
 
+    def flush_list_item() -> None:
+        nonlocal list_prefix
+        if not list_prefix:
+            return
+        output.extend(
+            render_list_item(
+                list_prefix,
+                " ".join(list_lines),
+                width=width,
+                justify=justify,
+                justify_style=justify_style,
+            )
+        )
+        list_prefix = ""
+        list_lines.clear()
+
     for raw_line in body.splitlines():
         if raw_line.strip() == "":
             flush_paragraph()
+            flush_list_item()
             output.append("")
+            continue
+
+        list_match = LIST_ITEM_RE.match(raw_line)
+        if list_match:
+            flush_paragraph()
+            if list_prefix:
+                flush_list_item()
+                output.append("")
+            leading, marker, text = list_match.groups()
+            list_prefix = f"{leading}{marker}"
+            list_lines.append(text.strip())
+            continue
+
+        if list_prefix and raw_line.startswith((" ", "\t")) and not is_list_boundary(raw_line):
+            list_lines.append(raw_line.strip())
             continue
 
         if is_markdownish(raw_line):
             flush_paragraph()
+            flush_list_item()
             output.append(raw_line.rstrip())
             continue
 
+        flush_list_item()
         paragraph.append(raw_line.strip())
 
     flush_paragraph()
+    flush_list_item()
     return output

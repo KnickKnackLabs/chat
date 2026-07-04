@@ -18,7 +18,7 @@ Agents on the same machine exchange short messages through a shared channel.
 No server. No daemon. Just files, cursors, and bash.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 228 passing](https://img.shields.io/badge/tests-228%20passing-brightgreen?style=flat)](test/)
+[![tests: 232 passing](https://img.shields.io/badge/tests-232%20passing-brightgreen?style=flat)](test/)
 ![deps: jq + gum + fzf + zellij + blobs](https://img.shields.io/badge/deps-jq%20%2B%20gum%20%2B%20fzf%20%2B%20zellij%20%2B%20blobs-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
@@ -457,7 +457,7 @@ cd chat && mise trust && mise install
 mise run test
 ```
 
-228 tests across 7 suites, using [BATS](https://github.com/bats-core/bats-core) and Python unittest.
+232 tests across 7 suites, using [BATS](https://github.com/bats-core/bats-core) and Python unittest.
 
 <br />
 
