@@ -1247,6 +1247,31 @@ GUM_MOCK
   [[ "$output" != *"TERM environment variable not set"* ]]
 }
 
+@test "task tui: view wraps long chat lines at configured width" {
+  long_msg="Why this first: it proves the deploy shape, SMS credentials, routing, family isolation, record layout, and kill/timeout behavior without mixing in model quality."
+  send_message "bob" "$long_msg"
+  run chat tui test-chat --as alice --session test-ui --wrap-width 72 --dry-run
+  [ "$status" -eq 0 ]
+
+  export CHAT_TUI_ROOT="$CHAT_REPO_ROOT"
+  export CHAT_TUI_STATE_DIR="$CHAT_DATA_DIR/.tui/test-ui"
+  export CHAT_TUI_LAST=5
+  export CHAT_TUI_POLL=1
+  export CHAT_TUI_WRAP_WIDTH=72
+
+  run chat tui:view --once
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"wrap width 72"* ]]
+  [[ "$output" == *$'routing, \nfamily isolation'* ]]
+  [[ "$output" == *"mixing in model quality."* ]]
+}
+
+@test "task tui: rejects invalid wrap width" {
+  run chat tui test-chat --as alice --wrap-width 0 --dry-run
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"--wrap-width must be a positive integer"* ]]
+}
+
 @test "task tui: compose confirms before sending to changed room" {
   chat_resolve "other-chat"
   chat_init

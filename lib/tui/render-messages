@@ -1,10 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+wrap_width="${CHAT_TUI_WRAP_WIDTH:-100}"
+case "$wrap_width" in
+  ''|*[!0-9]*)
+    printf 'Error: CHAT_TUI_WRAP_WIDTH must be a positive integer (got: %s)\n' "$wrap_width" >&2
+    exit 1
+    ;;
+  0)
+    printf 'Error: CHAT_TUI_WRAP_WIDTH must be a positive integer (got: 0)\n' >&2
+    exit 1
+    ;;
+esac
+
 jq -r '
   .[]
   | (.id // "") as $id
   | "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
     + ((.timestamp // "") + "  " + (.sender // "?") + (if $id == "" then "" else "  " + $id end) + "\n")
     + ((.body // "") + "\n")
-'
+' | fold -s -w "$wrap_width"

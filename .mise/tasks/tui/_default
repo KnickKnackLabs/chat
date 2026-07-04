@@ -6,6 +6,7 @@
 #USAGE flag "--fresh" default=#false help="Kill/delete an existing session before opening"
 #USAGE flag "--last <last>" default="80" help="Messages to show in the live view"
 #USAGE flag "--poll <seconds>" default="2" help="Live view refresh interval"
+#USAGE flag "--wrap-width <columns>" default="100" help="Readable message wrap width for the live view"
 #USAGE flag "--dry-run" default=#false help="Prepare state and print the launch command without attaching"
 #USAGE example "chat tui --as alice" header="Open the default chat cockpit"
 #USAGE example "chat tui fold --as alice" header="Open a specific channel"
@@ -23,6 +24,7 @@ session="${usage_session:-chat-tui}"
 fresh="${usage_fresh:-false}"
 last="${usage_last:-80}"
 poll="${usage_poll:-2}"
+wrap_width="${usage_wrap_width:-100}"
 dry_run="${usage_dry_run:-false}"
 
 case "$last" in
@@ -31,6 +33,10 @@ esac
 case "$poll" in
   ''|*[!0-9]*) echo "Error: --poll must be a positive integer (got: $poll)" >&2; exit 1 ;;
   0) echo "Error: --poll must be a positive integer (got: 0)" >&2; exit 1 ;;
+esac
+case "$wrap_width" in
+  ''|*[!0-9]*) echo "Error: --wrap-width must be a positive integer (got: $wrap_width)" >&2; exit 1 ;;
+  0) echo "Error: --wrap-width must be a positive integer (got: 0)" >&2; exit 1 ;;
 esac
 
 safe_session=$(printf '%s' "$session" | tr -c 'A-Za-z0-9_.-' '_')
@@ -45,6 +51,7 @@ export CHAT_CHANNEL="$CHAT_NAME"
 export CHAT_IDENTITY="$identity"
 export CHAT_TUI_LAST="$last"
 export CHAT_TUI_POLL="$poll"
+export CHAT_TUI_WRAP_WIDTH="$wrap_width"
 
 layout="$MISE_CONFIG_ROOT/lib/tui/layout.kdl"
 
