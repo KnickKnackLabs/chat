@@ -44,6 +44,10 @@ def is_list_boundary(line: str) -> bool:
     return False
 
 
+def leading_whitespace_width(line: str) -> int:
+    return len(line) - len(line.lstrip(" \t"))
+
+
 def tokenize(text: str) -> list[str]:
     return CODE_SPAN_OR_WORD.findall(text)
 
@@ -280,7 +284,12 @@ def render_body(
             list_lines.append(text.strip())
             continue
 
-        if list_prefix and raw_line.startswith((" ", "\t")) and not is_list_boundary(raw_line):
+        if (
+            list_prefix
+            and raw_line.startswith((" ", "\t"))
+            and leading_whitespace_width(raw_line) <= len(list_prefix)
+            and not is_list_boundary(raw_line)
+        ):
             list_lines.append(raw_line.strip())
             continue
 
