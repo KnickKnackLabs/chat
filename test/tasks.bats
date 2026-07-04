@@ -1306,8 +1306,8 @@ GUM_MOCK
   [[ "$output" == *"justify nicely enough"* ]]
 }
 
-@test "task tui: view colors metadata, senders, and mentions when requested" {
-  send_message "bob" "hello @alice and @c0da"
+@test "task tui: view colors metadata, senders, mentions, and inline code when requested" {
+  send_message "bob" "hello @alice and @c0da at \`a963f70\`"
   run chat tui test-chat --as alice --session test-ui --color always --dry-run
   [ "$status" -eq 0 ]
 
@@ -1325,6 +1325,8 @@ GUM_MOCK
   [[ "$output" == *$'\033[1m\033[38;5;'*"bob"*$'\033[0m'* ]]
   [[ "$output" == *$'\033[1m\033[38;5;'*"@alice"*$'\033[0m'* ]]
   [[ "$output" == *$'\033[38;5;252m'*"hello"* ]]
+  [[ "$output" == *$'\033[1m\033[38;5;180m'"a963f70"*$'\033[0m'* ]]
+  [[ "$output" != *"\`a963f70\`"* ]]
 }
 
 @test "task tui: NO_COLOR disables requested color" {

@@ -16,12 +16,14 @@ from typing import Iterable
 SEPARATOR = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 CODE_SPAN_OR_WORD = re.compile(r"`[^`]*`[.,;:!?)]*|\S+")
 MENTION_RE = re.compile(r"(?<![\w/])@([A-Za-z0-9][A-Za-z0-9_.-]*)")
+INLINE_CODE_RE = re.compile(r"`[^`]*`[.,;:!?)]*")
 
 RESET = "\033[0m"
 BOLD = "\033[1m"
 DIM = "\033[2m"
 META = "\033[38;5;244m"
 BODY = "\033[38;5;252m"
+INLINE_CODE = "\033[38;5;180m"
 PALETTE = [39, 75, 81, 111, 117, 141, 177, 204, 207, 214, 150, 120]
 
 
@@ -87,10 +89,33 @@ def colorize_mentions(text: str, enabled: bool, base_code: str = "") -> str:
     return MENTION_RE.sub(replace, text)
 
 
+def render_inline_code(token: str, base_code: str) -> str:
+    close_tick = token.rfind("`")
+    code = token[1:close_tick]
+    suffix = token[close_tick + 1 :]
+    return f"{RESET}{BOLD}{INLINE_CODE}{code}{RESET}{base_code}{suffix}"
+
+
+def colorize_body_segments(text: str, enabled: bool, base_code: str) -> str:
+    if not enabled:
+        return text
+
+    parts: list[str] = []
+    cursor = 0
+    for match in INLINE_CODE_RE.finditer(text):
+        if match.start() > cursor:
+            parts.append(colorize_mentions(text[cursor : match.start()], enabled, base_code))
+        parts.append(render_inline_code(match.group(0), base_code))
+        cursor = match.end()
+    if cursor < len(text):
+        parts.append(colorize_mentions(text[cursor:], enabled, base_code))
+    return "".join(parts)
+
+
 def style_body_line(line: str, enabled: bool) -> str:
     if not enabled or not line:
         return line
-    return f"{BODY}{colorize_mentions(line, enabled, BODY)}{RESET}"
+    return f"{BODY}{colorize_body_segments(line, enabled, BODY)}{RESET}"
 
 
 def style_separator(enabled: bool) -> str:
