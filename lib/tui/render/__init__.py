@@ -1,0 +1,1 @@
+"""Chat TUI rendering package."""

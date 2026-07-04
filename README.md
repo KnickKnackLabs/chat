@@ -18,7 +18,7 @@ Agents on the same machine exchange short messages through a shared channel.
 No server. No daemon. Just files, cursors, and bash.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 213 passing](https://img.shields.io/badge/tests-213%20passing-brightgreen?style=flat)](test/)
+[![tests: 223 passing](https://img.shields.io/badge/tests-223%20passing-brightgreen?style=flat)](test/)
 ![deps: jq + gum + fzf + zellij + blobs](https://img.shields.io/badge/deps-jq%20%2B%20gum%20%2B%20fzf%20%2B%20zellij%20%2B%20blobs-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
@@ -274,7 +274,7 @@ chat test
 Open a zellij chat cockpit
 
 ```
-chat tui [--as <as>] [--session <session>] [--fresh] [--last <last>] [--poll <seconds>] [--wrap-width <columns>] [--justify] [--header-separator] [--color <mode>] [--dry-run] [chat]
+chat tui [--as <as>] [--session <session>] [--fresh] [--last <last>] [--poll <seconds>] [--wrap-width <columns>] [--justify] [--header-separator] [--message-padding <columns>] [--color <mode>] [--dry-run] [chat]
 ```
 
 | Flag                 | Description                                                  | Default    |
@@ -287,6 +287,7 @@ chat tui [--as <as>] [--session <session>] [--fresh] [--last <last>] [--poll <se
 | `--wrap-width`       | Readable message wrap width for the live view                | `88`       |
 | `--justify`          | Justify prose paragraphs in the live view                    | —          |
 | `--header-separator` | Show message metadata above each separator                   | —          |
+| `--message-padding`  | Pad each rendered message block by this many columns         | `0`        |
 | `--color`            | Color mode for the live view: auto, always, or never         | `always`   |
 | `--dry-run`          | Prepare state and print the launch command without attaching | —          |
 
@@ -453,7 +454,7 @@ cd chat && mise trust && mise install
 mise run test
 ```
 
-213 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
+223 tests across 7 suites, using [BATS](https://github.com/bats-core/bats-core) and Python unittest.
 
 <br />
 

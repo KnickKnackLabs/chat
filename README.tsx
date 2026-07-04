@@ -1,6 +1,6 @@
 /** @jsxImportSource jsx-md */
 
-import { readFileSync, readdirSync } from "fs";
+import { readFileSync, readdirSync, statSync } from "fs";
 import { join, resolve } from "path";
 
 import {
@@ -26,7 +26,20 @@ const commands = parseMiseTasks(TASK_DIR);
 const testDir = join(REPO_DIR, "test");
 const testFiles = readdirSync(testDir).filter(f => f.endsWith(".bats"));
 const testSrc = testFiles.map(f => readFileSync(join(testDir, f), "utf-8")).join("\n");
-const testCount = [...testSrc.matchAll(/@test "/g)].length;
+const batsTestCount = [...testSrc.matchAll(/@test "/g)].length;
+
+function listFilesRecursive(dir: string): string[] {
+  return readdirSync(dir).flatMap((entry) => {
+    const path = join(dir, entry);
+    return statSync(path).isDirectory() ? listFilesRecursive(path) : [path];
+  });
+}
+
+const pythonTestFiles = listFilesRecursive(testDir).filter(f => /test_.*\.py$/.test(f));
+const pythonTestSrc = pythonTestFiles.map(f => readFileSync(f, "utf-8")).join("\n");
+const pythonTestCount = [...pythonTestSrc.matchAll(/^\s+def test_/gm)].length;
+const testCount = batsTestCount + pythonTestCount;
+const testSuiteCount = testFiles.length + pythonTestFiles.length;
 
 // Extract data dir default from lib
 const libSrc = readFileSync(LIB_FILE, "utf-8");
@@ -304,9 +317,9 @@ cd chat && mise trust && mise install
 mise run test`}</CodeBlock>
 
       <Paragraph>
-        {`${testCount} tests across ${testFiles.length} suite${testFiles.length === 1 ? "" : "s"}, using `}
+        {`${testCount} tests across ${testSuiteCount} suite${testSuiteCount === 1 ? "" : "s"}, using `}
         <Link href="https://github.com/bats-core/bats-core">BATS</Link>
-        {"."}
+        {" and Python unittest."}
       </Paragraph>
     </Section>
 

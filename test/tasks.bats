@@ -1325,6 +1325,28 @@ GUM_MOCK
   [[ "$output" == *"bob"*$'\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\ncard layout'* ]]
 }
 
+@test "task tui: view can pad message blocks" {
+  long_msg="alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu"
+  send_message "bob" "$long_msg"
+  run chat tui test-chat --as alice --session test-ui --wrap-width 42 --message-padding 2 --header-separator --dry-run
+  [ "$status" -eq 0 ]
+
+  export CHAT_TUI_ROOT="$CHAT_REPO_ROOT"
+  export CHAT_TUI_STATE_DIR="$CHAT_DATA_DIR/.tui/test-ui"
+  export CHAT_TUI_LAST=5
+  export CHAT_TUI_POLL=1
+  export CHAT_TUI_WRAP_WIDTH=42
+  export CHAT_TUI_MESSAGE_PADDING=2
+  export CHAT_TUI_HEADER_SEPARATOR=true
+  export CHAT_TUI_COLOR=never
+
+  run chat tui:view --once
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"message-padding 2"* ]]
+  [[ "$output" == *"  bob"* ]]
+  [[ "$output" == *$'\n  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n  alpha beta gamma delta epsilon zeta eta\n  theta iota kappa lambda mu'* ]]
+}
+
 @test "task tui: view colors metadata, senders, mentions, and inline code when requested" {
   send_message "bob" "hello @alice and @c0da at \`a963f70\`"
   run chat tui test-chat --as alice --session test-ui --color always --dry-run
