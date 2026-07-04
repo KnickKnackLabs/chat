@@ -1306,6 +1306,25 @@ GUM_MOCK
   [[ "$output" == *"justify nicely enough"* ]]
 }
 
+@test "task tui: view can show metadata above a full-width separator" {
+  send_message "bob" "card layout"
+  run chat tui test-chat --as alice --session test-ui --wrap-width 50 --header-separator --dry-run
+  [ "$status" -eq 0 ]
+
+  export CHAT_TUI_ROOT="$CHAT_REPO_ROOT"
+  export CHAT_TUI_STATE_DIR="$CHAT_DATA_DIR/.tui/test-ui"
+  export CHAT_TUI_LAST=5
+  export CHAT_TUI_POLL=1
+  export CHAT_TUI_WRAP_WIDTH=50
+  export CHAT_TUI_HEADER_SEPARATOR=true
+  export CHAT_TUI_COLOR=never
+
+  run chat tui:view --once
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"header-separator true"* ]]
+  [[ "$output" == *"bob"*$'\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\ncard layout'* ]]
+}
+
 @test "task tui: view colors metadata, senders, mentions, and inline code when requested" {
   send_message "bob" "hello @alice and @c0da at \`a963f70\`"
   run chat tui test-chat --as alice --session test-ui --color always --dry-run

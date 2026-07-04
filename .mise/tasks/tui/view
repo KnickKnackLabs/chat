@@ -12,6 +12,7 @@ last="${CHAT_TUI_LAST:-80}"
 poll="${CHAT_TUI_POLL:-2}"
 wrap_width="${CHAT_TUI_WRAP_WIDTH:-88}"
 justify="${CHAT_TUI_JUSTIFY:-false}"
+header_separator="${CHAT_TUI_HEADER_SEPARATOR:-false}"
 color="${CHAT_TUI_COLOR:-auto}"
 chat_tui_ensure_state
 
@@ -37,10 +38,10 @@ render_once() {
 
   if command -v gum >/dev/null 2>&1; then
     chat_tui_gum style --bold --foreground 212 -- "chat:$channel as:$identity"
-    chat_tui_gum style --foreground 240 -- "peek-reading last $last messages · refresh ${poll}s · wrap width ${wrap_width} · justify ${justify} · color ${color} · Ctrl-C exits this pane"
+    chat_tui_gum style --foreground 240 -- "peek-reading last $last messages · refresh ${poll}s · wrap width ${wrap_width} · justify ${justify} · header-separator ${header_separator} · color ${color} · Ctrl-C exits this pane"
   else
     printf 'chat:%s as:%s\n' "$channel" "$identity"
-    printf 'peek-reading last %s messages · refresh %ss · wrap width %s · justify %s · color %s · Ctrl-C exits this pane\n' "$last" "$poll" "$wrap_width" "$justify" "$color"
+    printf 'peek-reading last %s messages · refresh %ss · wrap width %s · justify %s · header-separator %s · color %s · Ctrl-C exits this pane\n' "$last" "$poll" "$wrap_width" "$justify" "$header_separator" "$color"
   fi
   printf '\n'
 

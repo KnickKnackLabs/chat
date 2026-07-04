@@ -13,7 +13,7 @@ import re
 import sys
 from typing import Iterable
 
-SEPARATOR = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+SEPARATOR_CHAR = "━"
 CODE_SPAN_OR_WORD = re.compile(r"`[^`]*`[.,;:!?)]*|\S+")
 MENTION_RE = re.compile(r"(?<![\w/])@([A-Za-z0-9][A-Za-z0-9_.-]*)")
 INLINE_CODE_RE = re.compile(r"`[^`]*`[.,;:!?)]*")
@@ -118,16 +118,20 @@ def style_body_line(line: str, enabled: bool) -> str:
     return f"{BODY}{colorize_body_segments(line, enabled, BODY)}{RESET}"
 
 
-def style_separator(enabled: bool) -> str:
-    return style(SEPARATOR, DIM, META, enabled=enabled)
+def style_separator(width: int, enabled: bool) -> str:
+    return style(SEPARATOR_CHAR * width, DIM, META, enabled=enabled)
 
 
-def style_header(timestamp: str, sender: str, message_id: str, enabled: bool) -> str:
+def plain_meta_line(timestamp: str, sender: str, message_id: str) -> str:
+    line = f"{timestamp}  {sender}"
+    if message_id:
+        line = f"{line}  {message_id}"
+    return line
+
+
+def style_meta_line(timestamp: str, sender: str, message_id: str, enabled: bool) -> str:
     if not enabled:
-        header = f"{timestamp}  {sender}"
-        if message_id:
-            header = f"{header}  {message_id}"
-        return header
+        return plain_meta_line(timestamp, sender, message_id)
 
     parts = [
         style(timestamp, DIM, META, enabled=enabled),
@@ -245,17 +249,33 @@ def render_body(body: str, width: int, justify: bool) -> list[str]:
 
 
 def render_message(
-    message: dict[str, object], width: int, justify: bool, use_color: bool
+    message: dict[str, object],
+    width: int,
+    justify: bool,
+    use_color: bool,
+    header_separator: bool,
 ) -> list[str]:
     sender = str(message.get("sender") or "?")
     timestamp = str(message.get("timestamp") or "")
     message_id = str(message.get("id") or "")
     body = str(message.get("body") or "")
+    body_lines = [style_body_line(line, use_color) for line in render_body(body, width, justify)]
+    meta_line = style_meta_line(timestamp, sender, message_id, use_color)
+    separator = style_separator(width, use_color)
+
+    if header_separator:
+        return [
+            meta_line,
+            separator,
+            *body_lines,
+            "",
+            "",
+        ]
 
     return [
-        style_separator(use_color),
-        style_header(timestamp, sender, message_id, use_color),
-        *(style_body_line(line, use_color) for line in render_body(body, width, justify)),
+        separator,
+        meta_line,
+        *body_lines,
         "",
     ]
 
@@ -263,6 +283,7 @@ def render_message(
 def main() -> int:
     width = env_positive_int("CHAT_TUI_WRAP_WIDTH", 88)
     justify = env_bool("CHAT_TUI_JUSTIFY", False)
+    header_separator = env_bool("CHAT_TUI_HEADER_SEPARATOR", False)
     use_color = color_enabled()
 
     try:
@@ -272,7 +293,7 @@ def main() -> int:
         return 1
 
     for message in messages:
-        for line in render_message(message, width, justify, use_color):
+        for line in render_message(message, width, justify, use_color, header_separator):
             print(line)
     return 0
 
