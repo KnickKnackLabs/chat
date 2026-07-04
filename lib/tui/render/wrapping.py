@@ -44,8 +44,12 @@ def is_list_boundary(line: str) -> bool:
     return False
 
 
+def leading_whitespace(line: str) -> str:
+    return line[: len(line) - len(line.lstrip(" \t"))]
+
+
 def leading_whitespace_width(line: str) -> int:
-    return len(line) - len(line.lstrip(" \t"))
+    return len(leading_whitespace(line))
 
 
 def tokenize(text: str) -> list[str]:
@@ -287,6 +291,7 @@ def render_body(
         if (
             list_prefix
             and raw_line.startswith((" ", "\t"))
+            and "\t" not in leading_whitespace(raw_line)
             and leading_whitespace_width(raw_line) <= len(list_prefix)
             and not is_list_boundary(raw_line)
         ):

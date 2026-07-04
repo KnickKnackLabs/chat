@@ -90,6 +90,17 @@ class WrappingTest(unittest.TestCase):
             ],
         )
 
+    def test_tab_indented_lines_after_list_items_stay_literal(self) -> None:
+        body = "- Here is output:\n\tindented code line should stay separate"
+
+        self.assertEqual(
+            render_body(body, width=60, justify=True),
+            [
+                "- Here is output:",
+                "\tindented code line should stay separate",
+            ],
+        )
+
     def test_adjacent_list_items_get_a_blank_line(self) -> None:
         body = "1. first, we need to restart your sessions so you can start using the rewind functionality that brownie recently introduced.\n2. c0da, i would like for you to take the next pass at development while quick fixes chat tui."
 
