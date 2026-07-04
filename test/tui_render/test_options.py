@@ -15,6 +15,7 @@ class OptionsTest(unittest.TestCase):
             {
                 "CHAT_TUI_WRAP_WIDTH": "88",
                 "CHAT_TUI_JUSTIFY": "true",
+                "CHAT_TUI_JUSTIFY_STYLE": "balanced",
                 "CHAT_TUI_HEADER_SEPARATOR": "true",
                 "CHAT_TUI_MESSAGE_PADDING": "2",
                 "CHAT_TUI_COLOR": "always",
@@ -26,6 +27,7 @@ class OptionsTest(unittest.TestCase):
             RenderOptions(
                 width=88,
                 justify=True,
+                justify_style="balanced",
                 header_separator=True,
                 message_padding=2,
                 color_mode="always",
@@ -35,6 +37,10 @@ class OptionsTest(unittest.TestCase):
     def test_padding_must_fit_inside_width(self) -> None:
         with self.assertRaisesRegex(ValueError, "MESSAGE_PADDING"):
             from_env({"CHAT_TUI_WRAP_WIDTH": "2", "CHAT_TUI_MESSAGE_PADDING": "2"})
+
+    def test_rejects_invalid_justify_style(self) -> None:
+        with self.assertRaisesRegex(ValueError, "JUSTIFY_STYLE"):
+            from_env({"CHAT_TUI_JUSTIFY_STYLE": "wobbly"})
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from typing import Iterable
 
@@ -29,6 +30,12 @@ def tokenize(text: str) -> list[str]:
     return CODE_SPAN_OR_WORD.findall(text)
 
 
+def tokens_length(tokens: list[str]) -> int:
+    if not tokens:
+        return 0
+    return sum(len(token) for token in tokens) + len(tokens) - 1
+
+
 def wrap_tokens(tokens: Iterable[str], width: int) -> list[list[str]]:
     lines: list[list[str]] = []
     current: list[str] = []
@@ -47,6 +54,81 @@ def wrap_tokens(tokens: Iterable[str], width: int) -> list[list[str]]:
 
     if current:
         lines.append(current)
+    return lines
+
+
+def balanced_wrap_tokens(tokens: list[str], width: int) -> list[list[str]]:
+    """Choose paragraph line breaks that avoid ugly justification gaps.
+
+    This is a small dynamic-programming line breaker inspired by TeX's
+    paragraph-level optimization, not a full Knuth-Plass implementation. It
+    minimizes the total spacing "badness" over the paragraph instead of making
+    each line greedily as full as possible.
+    """
+
+    if not tokens:
+        return []
+
+    token_count = len(tokens)
+    lengths = [len(token) for token in tokens]
+    prefix = [0]
+    for length in lengths:
+        prefix.append(prefix[-1] + length)
+
+    def line_length(start: int, end: int) -> int:
+        word_count = end - start
+        return prefix[end] - prefix[start] + max(0, word_count - 1)
+
+    def line_badness(start: int, end: int) -> float:
+        length = line_length(start, end)
+        word_count = end - start
+
+        # A single over-wide token has no legal break inside this renderer.
+        if length > width and word_count > 1:
+            return math.inf
+
+        slack = max(0, width - length)
+        if end == token_count:
+            # Last lines stay ragged. Penalize very short or orphan-ish final
+            # lines lightly so we do not make prior justified lines terrible
+            # just to fill the final line.
+            if word_count == 1 and token_count > 1:
+                return slack * slack * 2
+            return slack * slack * 0.1
+
+        gaps = word_count - 1
+        if gaps == 0:
+            return math.inf
+
+        max_extra_per_gap = math.ceil(slack / gaps) if gaps else slack
+        # Combining total slack and worst-gap penalty discourages visible
+        # "rivers" while still preferring a filled text column.
+        return slack * slack + (max_extra_per_gap**4 * 8)
+
+    best_cost = [math.inf] * (token_count + 1)
+    next_break = [token_count] * (token_count + 1)
+    best_cost[token_count] = 0
+
+    for start in range(token_count - 1, -1, -1):
+        for end in range(start + 1, token_count + 1):
+            length = line_length(start, end)
+            if length > width and end - start > 1:
+                break
+
+            cost = line_badness(start, end) + best_cost[end]
+            if cost < best_cost[start]:
+                best_cost[start] = cost
+                next_break[start] = end
+
+    if math.isinf(best_cost[0]):
+        return wrap_tokens(tokens, width)
+
+    lines: list[list[str]] = []
+    start = 0
+    while start < token_count:
+        end = next_break[start]
+        lines.append(tokens[start:end])
+        start = end
     return lines
 
 
@@ -71,29 +153,52 @@ def justify_tokens(tokens: list[str], width: int) -> str:
     return "".join(parts)
 
 
-def render_prose(paragraph: str, *, width: int, justify: bool) -> list[str]:
-    wrapped = wrap_tokens(tokenize(paragraph), width)
+def render_prose(
+    paragraph: str,
+    *,
+    width: int,
+    justify: bool,
+    justify_style: str = "balanced",
+) -> list[str]:
+    tokens = tokenize(paragraph)
+    if justify and justify_style == "balanced":
+        wrapped = balanced_wrap_tokens(tokens, width)
+    else:
+        wrapped = wrap_tokens(tokens, width)
     if not wrapped:
         return []
 
     lines: list[str] = []
     last_index = len(wrapped) - 1
-    for index, tokens in enumerate(wrapped):
+    for index, line_tokens in enumerate(wrapped):
         if justify and index != last_index:
-            lines.append(justify_tokens(tokens, width))
+            lines.append(justify_tokens(line_tokens, width))
         else:
-            lines.append(" ".join(tokens))
+            lines.append(" ".join(line_tokens))
     return lines
 
 
-def render_body(body: str, *, width: int, justify: bool) -> list[str]:
+def render_body(
+    body: str,
+    *,
+    width: int,
+    justify: bool,
+    justify_style: str = "balanced",
+) -> list[str]:
     output: list[str] = []
     paragraph: list[str] = []
 
     def flush_paragraph() -> None:
         if not paragraph:
             return
-        output.extend(render_prose(" ".join(paragraph), width=width, justify=justify))
+        output.extend(
+            render_prose(
+                " ".join(paragraph),
+                width=width,
+                justify=justify,
+                justify_style=justify_style,
+            )
+        )
         paragraph.clear()
 
     for raw_line in body.splitlines():

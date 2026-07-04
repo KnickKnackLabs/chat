@@ -7,9 +7,12 @@
 #USAGE flag "--last <last>" default="80" help="Messages to show in the live view"
 #USAGE flag "--poll <seconds>" default="2" help="Live view refresh interval"
 #USAGE flag "--wrap-width <columns>" default="88" help="Readable message wrap width for the live view"
-#USAGE flag "--justify" default=#false help="Justify prose paragraphs in the live view"
-#USAGE flag "--header-separator" default=#false help="Show message metadata above each separator"
-#USAGE flag "--message-padding <columns>" default="0" help="Pad each rendered message block by this many columns"
+#USAGE flag "--justify" default=#true help="Justify prose paragraphs in the live view"
+#USAGE flag "--no-justify" default=#false help="Render prose ragged instead of justified"
+#USAGE flag "--justify-style <style>" default="balanced" help="Line-breaking style for justified prose: greedy or balanced"
+#USAGE flag "--header-separator" default=#true help="Show message metadata above each separator"
+#USAGE flag "--no-header-separator" default=#false help="Render the separator above metadata"
+#USAGE flag "--message-padding <columns>" default="2" help="Pad each rendered message block by this many columns"
 #USAGE flag "--color <mode>" default="always" help="Color mode for the live view: auto, always, or never"
 #USAGE flag "--dry-run" default=#false help="Prepare state and print the launch command without attaching"
 #USAGE example "chat tui --as alice" header="Open the default chat cockpit"
@@ -29,9 +32,12 @@ fresh="${usage_fresh:-false}"
 last="${usage_last:-80}"
 poll="${usage_poll:-2}"
 wrap_width="${usage_wrap_width:-88}"
-justify="${usage_justify:-false}"
-header_separator="${usage_header_separator:-false}"
-message_padding="${usage_message_padding:-0}"
+justify="${usage_justify:-true}"
+no_justify="${usage_no_justify:-false}"
+justify_style="${usage_justify_style:-balanced}"
+header_separator="${usage_header_separator:-true}"
+no_header_separator="${usage_no_header_separator:-false}"
+message_padding="${usage_message_padding:-2}"
 color="${usage_color:-always}"
 dry_run="${usage_dry_run:-false}"
 
@@ -49,6 +55,10 @@ esac
 case "$message_padding" in
   ''|*[!0-9]*) echo "Error: --message-padding must be a non-negative integer (got: $message_padding)" >&2; exit 1 ;;
 esac
+case "$justify_style" in
+  greedy|balanced) ;;
+  *) echo "Error: --justify-style must be greedy or balanced (got: $justify_style)" >&2; exit 1 ;;
+esac
 if [ "$message_padding" -ge "$wrap_width" ]; then
   echo "Error: --message-padding must be less than --wrap-width" >&2
   exit 1
@@ -57,6 +67,12 @@ case "$color" in
   auto|always|never) ;;
   *) echo "Error: --color must be auto, always, or never (got: $color)" >&2; exit 1 ;;
 esac
+if [ "$no_justify" = "true" ]; then
+  justify=false
+fi
+if [ "$no_header_separator" = "true" ]; then
+  header_separator=false
+fi
 
 safe_session=$(printf '%s' "$session" | tr -c 'A-Za-z0-9_.-' '_')
 state_dir="$CHAT_DATA_DIR/.tui/$safe_session"
@@ -72,6 +88,7 @@ export CHAT_TUI_LAST="$last"
 export CHAT_TUI_POLL="$poll"
 export CHAT_TUI_WRAP_WIDTH="$wrap_width"
 export CHAT_TUI_JUSTIFY="$justify"
+export CHAT_TUI_JUSTIFY_STYLE="$justify_style"
 export CHAT_TUI_HEADER_SEPARATOR="$header_separator"
 export CHAT_TUI_MESSAGE_PADDING="$message_padding"
 export CHAT_TUI_COLOR="$color"

@@ -1250,7 +1250,7 @@ GUM_MOCK
 @test "task tui: view wraps long chat lines at configured width" {
   long_msg="Why this first: it proves the deploy shape, SMS credentials, routing, family isolation, record layout, and kill/timeout behavior without mixing in model quality."
   send_message "bob" "$long_msg"
-  run chat tui test-chat --as alice --session test-ui --wrap-width 72 --dry-run
+  run chat tui test-chat --as alice --session test-ui --wrap-width 72 --no-justify --no-header-separator --message-padding 0 --dry-run
   [ "$status" -eq 0 ]
 
   export CHAT_TUI_ROOT="$CHAT_REPO_ROOT"
@@ -1258,6 +1258,9 @@ GUM_MOCK
   export CHAT_TUI_LAST=5
   export CHAT_TUI_POLL=1
   export CHAT_TUI_WRAP_WIDTH=72
+  export CHAT_TUI_JUSTIFY=false
+  export CHAT_TUI_HEADER_SEPARATOR=false
+  export CHAT_TUI_MESSAGE_PADDING=0
 
   run chat tui:view --once
   [ "$status" -eq 0 ]
@@ -1269,7 +1272,7 @@ GUM_MOCK
 @test "task tui: view justifies prose when requested" {
   long_msg="alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu"
   send_message "bob" "$long_msg"
-  run chat tui test-chat --as alice --session test-ui --wrap-width 40 --justify --dry-run
+  run chat tui test-chat --as alice --session test-ui --wrap-width 40 --justify --justify-style greedy --no-header-separator --message-padding 0 --dry-run
   [ "$status" -eq 0 ]
 
   export CHAT_TUI_ROOT="$CHAT_REPO_ROOT"
@@ -1278,6 +1281,9 @@ GUM_MOCK
   export CHAT_TUI_POLL=1
   export CHAT_TUI_WRAP_WIDTH=40
   export CHAT_TUI_JUSTIFY=true
+  export CHAT_TUI_JUSTIFY_STYLE=greedy
+  export CHAT_TUI_HEADER_SEPARATOR=false
+  export CHAT_TUI_MESSAGE_PADDING=0
 
   run chat tui:view --once
   [ "$status" -eq 0 ]
@@ -1286,10 +1292,10 @@ GUM_MOCK
   [[ "$output" == *"theta iota kappa lambda mu"* ]]
 }
 
-@test "task tui: view leaves markdown-ish lines ragged while justifying prose" {
-  msg=$'- bullet one has enough words to exceed the width significantly\nplain prose after bullet should wrap and justify nicely enough'
-  send_message "bob" "$msg"
-  run chat tui test-chat --as alice --session test-ui --wrap-width 40 --justify --dry-run
+@test "task tui: view can use balanced justification" {
+  long_msg="Restart handback: next c0da work is the NVR headless-ingress slice. Start in \`ricon-family/nvr\` clean at \`c90ff78\`. Implement the smallest first pass: reserved headless/service path reads \`shiv:sms listen --json\`, rejects non-allowlisted senders, maps sender to opaque family/conversation id, and writes private per-conversation event records."
+  send_message "bob" "$long_msg"
+  run chat tui test-chat --as alice --session test-ui --wrap-width 40 --justify --justify-style balanced --no-header-separator --message-padding 0 --color never --dry-run
   [ "$status" -eq 0 ]
 
   export CHAT_TUI_ROOT="$CHAT_REPO_ROOT"
@@ -1298,6 +1304,34 @@ GUM_MOCK
   export CHAT_TUI_POLL=1
   export CHAT_TUI_WRAP_WIDTH=40
   export CHAT_TUI_JUSTIFY=true
+  export CHAT_TUI_JUSTIFY_STYLE=balanced
+  export CHAT_TUI_HEADER_SEPARATOR=false
+  export CHAT_TUI_MESSAGE_PADDING=0
+  export CHAT_TUI_COLOR=never
+
+  run chat tui:view --once
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"justify-style balanced"* ]]
+  [[ "$output" != *'`shiv:sms listen --json`,        rejects'* ]]
+  [[ "$output" == *"path   reads"* ]]
+  [[ "$output" == *'`shiv:sms listen --json`,'* ]]
+}
+
+@test "task tui: view leaves markdown-ish lines ragged while justifying prose" {
+  msg=$'- bullet one has enough words to exceed the width significantly\nplain prose after bullet should wrap and justify nicely enough'
+  send_message "bob" "$msg"
+  run chat tui test-chat --as alice --session test-ui --wrap-width 40 --justify --justify-style greedy --no-header-separator --message-padding 0 --dry-run
+  [ "$status" -eq 0 ]
+
+  export CHAT_TUI_ROOT="$CHAT_REPO_ROOT"
+  export CHAT_TUI_STATE_DIR="$CHAT_DATA_DIR/.tui/test-ui"
+  export CHAT_TUI_LAST=5
+  export CHAT_TUI_POLL=1
+  export CHAT_TUI_WRAP_WIDTH=40
+  export CHAT_TUI_JUSTIFY=true
+  export CHAT_TUI_JUSTIFY_STYLE=greedy
+  export CHAT_TUI_HEADER_SEPARATOR=false
+  export CHAT_TUI_MESSAGE_PADDING=0
 
   run chat tui:view --once
   [ "$status" -eq 0 ]
@@ -1308,7 +1342,7 @@ GUM_MOCK
 
 @test "task tui: view can show metadata above a full-width separator" {
   send_message "bob" "card layout"
-  run chat tui test-chat --as alice --session test-ui --wrap-width 50 --header-separator --dry-run
+  run chat tui test-chat --as alice --session test-ui --wrap-width 50 --header-separator --message-padding 0 --dry-run
   [ "$status" -eq 0 ]
 
   export CHAT_TUI_ROOT="$CHAT_REPO_ROOT"
@@ -1317,6 +1351,7 @@ GUM_MOCK
   export CHAT_TUI_POLL=1
   export CHAT_TUI_WRAP_WIDTH=50
   export CHAT_TUI_HEADER_SEPARATOR=true
+  export CHAT_TUI_MESSAGE_PADDING=0
   export CHAT_TUI_COLOR=never
 
   run chat tui:view --once
@@ -1328,7 +1363,7 @@ GUM_MOCK
 @test "task tui: view can pad message blocks" {
   long_msg="alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu"
   send_message "bob" "$long_msg"
-  run chat tui test-chat --as alice --session test-ui --wrap-width 42 --message-padding 2 --header-separator --dry-run
+  run chat tui test-chat --as alice --session test-ui --wrap-width 42 --no-justify --message-padding 2 --header-separator --dry-run
   [ "$status" -eq 0 ]
 
   export CHAT_TUI_ROOT="$CHAT_REPO_ROOT"
@@ -1336,6 +1371,7 @@ GUM_MOCK
   export CHAT_TUI_LAST=5
   export CHAT_TUI_POLL=1
   export CHAT_TUI_WRAP_WIDTH=42
+  export CHAT_TUI_JUSTIFY=false
   export CHAT_TUI_MESSAGE_PADDING=2
   export CHAT_TUI_HEADER_SEPARATOR=true
   export CHAT_TUI_COLOR=never
@@ -1397,6 +1433,12 @@ GUM_MOCK
   run chat tui test-chat --as alice --color neon --dry-run
   [ "$status" -ne 0 ]
   [[ "$output" == *"--color must be auto, always, or never"* ]]
+}
+
+@test "task tui: rejects invalid justify style" {
+  run chat tui test-chat --as alice --justify-style wobbly --dry-run
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"--justify-style must be greedy or balanced"* ]]
 }
 
 @test "task tui: compose confirms before sending to changed room" {

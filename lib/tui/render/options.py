@@ -9,9 +9,10 @@ from os import environ
 @dataclass(frozen=True)
 class RenderOptions:
     width: int = 88
-    justify: bool = False
-    header_separator: bool = False
-    message_padding: int = 0
+    justify: bool = True
+    justify_style: str = "balanced"
+    header_separator: bool = True
+    message_padding: int = 2
     color_mode: str = "auto"
 
 
@@ -42,6 +43,15 @@ def parse_color_mode(value: str | None, default: str = "auto") -> str:
     return mode
 
 
+def parse_justify_style(value: str | None, default: str = "balanced") -> str:
+    style = default if value is None or value == "" else value.lower()
+    if style not in {"greedy", "balanced"}:
+        raise ValueError(
+            f"CHAT_TUI_JUSTIFY_STYLE must be greedy or balanced (got: {style})"
+        )
+    return style
+
+
 def validate_options(options: RenderOptions) -> RenderOptions:
     if options.message_padding >= options.width:
         raise ValueError("CHAT_TUI_MESSAGE_PADDING must be less than CHAT_TUI_WRAP_WIDTH")
@@ -53,10 +63,11 @@ def from_env(env: dict[str, str] | None = None) -> RenderOptions:
     return validate_options(
         RenderOptions(
             width=parse_positive_int("CHAT_TUI_WRAP_WIDTH", source.get("CHAT_TUI_WRAP_WIDTH"), 88),
-            justify=parse_bool(source.get("CHAT_TUI_JUSTIFY"), False),
-            header_separator=parse_bool(source.get("CHAT_TUI_HEADER_SEPARATOR"), False),
+            justify=parse_bool(source.get("CHAT_TUI_JUSTIFY"), True),
+            justify_style=parse_justify_style(source.get("CHAT_TUI_JUSTIFY_STYLE"), "balanced"),
+            header_separator=parse_bool(source.get("CHAT_TUI_HEADER_SEPARATOR"), True),
             message_padding=parse_nonnegative_int(
-                "CHAT_TUI_MESSAGE_PADDING", source.get("CHAT_TUI_MESSAGE_PADDING"), 0
+                "CHAT_TUI_MESSAGE_PADDING", source.get("CHAT_TUI_MESSAGE_PADDING"), 2
             ),
             color_mode=parse_color_mode(source.get("CHAT_TUI_COLOR"), "auto"),
         )

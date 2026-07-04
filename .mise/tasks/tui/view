@@ -11,9 +11,10 @@ once="${usage_once:-false}"
 last="${CHAT_TUI_LAST:-80}"
 poll="${CHAT_TUI_POLL:-2}"
 wrap_width="${CHAT_TUI_WRAP_WIDTH:-88}"
-justify="${CHAT_TUI_JUSTIFY:-false}"
-header_separator="${CHAT_TUI_HEADER_SEPARATOR:-false}"
-message_padding="${CHAT_TUI_MESSAGE_PADDING:-0}"
+justify="${CHAT_TUI_JUSTIFY:-true}"
+justify_style="${CHAT_TUI_JUSTIFY_STYLE:-balanced}"
+header_separator="${CHAT_TUI_HEADER_SEPARATOR:-true}"
+message_padding="${CHAT_TUI_MESSAGE_PADDING:-2}"
 color="${CHAT_TUI_COLOR:-auto}"
 chat_tui_ensure_state
 
@@ -39,10 +40,10 @@ render_once() {
 
   if command -v gum >/dev/null 2>&1; then
     chat_tui_gum style --bold --foreground 212 -- "chat:$channel as:$identity"
-    chat_tui_gum style --foreground 240 -- "peek-reading last $last messages · refresh ${poll}s · wrap width ${wrap_width} · justify ${justify} · header-separator ${header_separator} · message-padding ${message_padding} · color ${color} · Ctrl-C exits this pane"
+    chat_tui_gum style --foreground 240 -- "peek-reading last $last messages · refresh ${poll}s · wrap width ${wrap_width} · justify ${justify} · justify-style ${justify_style} · header-separator ${header_separator} · message-padding ${message_padding} · color ${color} · Ctrl-C exits this pane"
   else
     printf 'chat:%s as:%s\n' "$channel" "$identity"
-    printf 'peek-reading last %s messages · refresh %ss · wrap width %s · justify %s · header-separator %s · message-padding %s · color %s · Ctrl-C exits this pane\n' "$last" "$poll" "$wrap_width" "$justify" "$header_separator" "$message_padding" "$color"
+    printf 'peek-reading last %s messages · refresh %ss · wrap width %s · justify %s · justify-style %s · header-separator %s · message-padding %s · color %s · Ctrl-C exits this pane\n' "$last" "$poll" "$wrap_width" "$justify" "$justify_style" "$header_separator" "$message_padding" "$color"
   fi
   printf '\n'
 

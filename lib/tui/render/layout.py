@@ -58,7 +58,12 @@ def render_message(message: dict[str, object], *, options: RenderOptions, color:
     content_width = max(1, options.width - options.message_padding)
     body_lines = [
         style_body_line(line, color=color)
-        for line in render_body(body, width=content_width, justify=options.justify)
+        for line in render_body(
+            body,
+            width=content_width,
+            justify=options.justify,
+            justify_style=options.justify_style,
+        )
     ]
     meta_line = style_meta_line(timestamp, sender, message_id, color=color)
     separator = style_separator(content_width, color=color)
