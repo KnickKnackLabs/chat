@@ -10,6 +10,7 @@ source "$root/lib/tui/common.sh"
 once="${usage_once:-false}"
 last="${CHAT_TUI_LAST:-80}"
 poll="${CHAT_TUI_POLL:-2}"
+wrap_width="${CHAT_TUI_WRAP_WIDTH:-100}"
 chat_tui_ensure_state
 
 hash_file() {
@@ -34,10 +35,10 @@ render_once() {
 
   if command -v gum >/dev/null 2>&1; then
     chat_tui_gum style --bold --foreground 212 -- "chat:$channel as:$identity"
-    chat_tui_gum style --foreground 240 -- "peek-reading last $last messages · refresh ${poll}s · terminal autowrap off · Ctrl-C exits this pane"
+    chat_tui_gum style --foreground 240 -- "peek-reading last $last messages · refresh ${poll}s · wrap width ${wrap_width} · Ctrl-C exits this pane"
   else
     printf 'chat:%s as:%s\n' "$channel" "$identity"
-    printf 'peek-reading last %s messages · refresh %ss · terminal autowrap off · Ctrl-C exits this pane\n' "$last" "$poll"
+    printf 'peek-reading last %s messages · refresh %ss · wrap width %s · Ctrl-C exits this pane\n' "$last" "$poll" "$wrap_width"
   fi
   printf '\n'
 
@@ -60,14 +61,12 @@ render_once() {
 tmp="$(mktemp "${TMPDIR:-/tmp}/chat-tui-view.XXXXXX")"
 cleanup() {
   rm -f "$tmp"
-  try_tput smam
   try_tput cnorm
 }
 trap cleanup EXIT INT TERM
 
 last_hash=""
 try_tput civis
-try_tput rmam
 try_clear
 
 while true; do
