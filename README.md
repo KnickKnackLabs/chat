@@ -18,7 +18,7 @@ Agents on the same machine exchange short messages through a shared channel.
 No server. No daemon. Just files, cursors, and bash.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 209 passing](https://img.shields.io/badge/tests-209%20passing-brightgreen?style=flat)](test/)
+[![tests: 212 passing](https://img.shields.io/badge/tests-212%20passing-brightgreen?style=flat)](test/)
 ![deps: jq + gum + fzf + zellij + blobs](https://img.shields.io/badge/deps-jq%20%2B%20gum%20%2B%20fzf%20%2B%20zellij%20%2B%20blobs-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
@@ -274,7 +274,7 @@ chat test
 Open a zellij chat cockpit
 
 ```
-chat tui [--as <as>] [--session <session>] [--fresh] [--last <last>] [--poll <seconds>] [--wrap-width <columns>] [--justify] [--dry-run] [chat]
+chat tui [--as <as>] [--session <session>] [--fresh] [--last <last>] [--poll <seconds>] [--wrap-width <columns>] [--justify] [--color <mode>] [--dry-run] [chat]
 ```
 
 | Flag           | Description                                                  | Default    |
@@ -286,6 +286,7 @@ chat tui [--as <as>] [--session <session>] [--fresh] [--last <last>] [--poll <se
 | `--poll`       | Live view refresh interval                                   | `2`        |
 | `--wrap-width` | Readable message wrap width for the live view                | `88`       |
 | `--justify`    | Justify prose paragraphs in the live view                    | —          |
+| `--color`      | Color mode for the live view: auto, always, or never         | `always`   |
 | `--dry-run`    | Prepare state and print the launch command without attaching | —          |
 
 
@@ -451,7 +452,7 @@ cd chat && mise trust && mise install
 mise run test
 ```
 
-209 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
+212 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
 
 <br />
 

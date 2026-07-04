@@ -8,6 +8,7 @@
 #USAGE flag "--poll <seconds>" default="2" help="Live view refresh interval"
 #USAGE flag "--wrap-width <columns>" default="88" help="Readable message wrap width for the live view"
 #USAGE flag "--justify" default=#false help="Justify prose paragraphs in the live view"
+#USAGE flag "--color <mode>" default="always" help="Color mode for the live view: auto, always, or never"
 #USAGE flag "--dry-run" default=#false help="Prepare state and print the launch command without attaching"
 #USAGE example "chat tui --as alice" header="Open the default chat cockpit"
 #USAGE example "chat tui fold --as alice" header="Open a specific channel"
@@ -27,6 +28,7 @@ last="${usage_last:-80}"
 poll="${usage_poll:-2}"
 wrap_width="${usage_wrap_width:-88}"
 justify="${usage_justify:-false}"
+color="${usage_color:-always}"
 dry_run="${usage_dry_run:-false}"
 
 case "$last" in
@@ -39,6 +41,10 @@ esac
 case "$wrap_width" in
   ''|*[!0-9]*) echo "Error: --wrap-width must be a positive integer (got: $wrap_width)" >&2; exit 1 ;;
   0) echo "Error: --wrap-width must be a positive integer (got: 0)" >&2; exit 1 ;;
+esac
+case "$color" in
+  auto|always|never) ;;
+  *) echo "Error: --color must be auto, always, or never (got: $color)" >&2; exit 1 ;;
 esac
 
 safe_session=$(printf '%s' "$session" | tr -c 'A-Za-z0-9_.-' '_')
@@ -55,6 +61,7 @@ export CHAT_TUI_LAST="$last"
 export CHAT_TUI_POLL="$poll"
 export CHAT_TUI_WRAP_WIDTH="$wrap_width"
 export CHAT_TUI_JUSTIFY="$justify"
+export CHAT_TUI_COLOR="$color"
 
 layout="$MISE_CONFIG_ROOT/lib/tui/layout.kdl"
 
