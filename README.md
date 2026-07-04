@@ -18,7 +18,7 @@ Agents on the same machine exchange short messages through a shared channel.
 No server. No daemon. Just files, cursors, and bash.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 212 passing](https://img.shields.io/badge/tests-212%20passing-brightgreen?style=flat)](test/)
+[![tests: 234 passing](https://img.shields.io/badge/tests-234%20passing-brightgreen?style=flat)](test/)
 ![deps: jq + gum + fzf + zellij + blobs](https://img.shields.io/badge/deps-jq%20%2B%20gum%20%2B%20fzf%20%2B%20zellij%20%2B%20blobs-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
@@ -274,20 +274,25 @@ chat test
 Open a zellij chat cockpit
 
 ```
-chat tui [--as <as>] [--session <session>] [--fresh] [--last <last>] [--poll <seconds>] [--wrap-width <columns>] [--justify] [--color <mode>] [--dry-run] [chat]
+chat tui [--as <as>] [--session <session>] [--fresh] [--last <last>] [--poll <seconds>] [--wrap-width <columns>] [--justify] [--no-justify] [--justify-style <style>] [--header-separator] [--no-header-separator] [--message-padding <columns>] [--color <mode>] [--dry-run] [chat]
 ```
 
-| Flag           | Description                                                  | Default    |
-| -------------- | ------------------------------------------------------------ | ---------- |
-| `--as`         | Your identity (default: $CHAT_IDENTITY)                      | —          |
-| `--session`    | Zellij session name                                          | `chat-tui` |
-| `--fresh`      | Kill/delete an existing session before opening               | —          |
-| `--last`       | Messages to show in the live view                            | `80`       |
-| `--poll`       | Live view refresh interval                                   | `2`        |
-| `--wrap-width` | Readable message wrap width for the live view                | `88`       |
-| `--justify`    | Justify prose paragraphs in the live view                    | —          |
-| `--color`      | Color mode for the live view: auto, always, or never         | `always`   |
-| `--dry-run`    | Prepare state and print the launch command without attaching | —          |
+| Flag                    | Description                                                  | Default    |
+| ----------------------- | ------------------------------------------------------------ | ---------- |
+| `--as`                  | Your identity (default: $CHAT_IDENTITY)                      | —          |
+| `--session`             | Zellij session name                                          | `chat-tui` |
+| `--fresh`               | Kill/delete an existing session before opening               | —          |
+| `--last`                | Messages to show in the live view                            | `80`       |
+| `--poll`                | Live view refresh interval                                   | `2`        |
+| `--wrap-width`          | Readable message wrap width for the live view                | `88`       |
+| `--justify`             | Justify prose paragraphs in the live view                    | —          |
+| `--no-justify`          | Render prose ragged instead of justified                     | —          |
+| `--justify-style`       | Line-breaking style for justified prose: greedy or balanced  | `balanced` |
+| `--header-separator`    | Show message metadata above each separator                   | —          |
+| `--no-header-separator` | Render the separator above metadata                          | —          |
+| `--message-padding`     | Pad each rendered message block by this many columns         | `2`        |
+| `--color`               | Color mode for the live view: auto, always, or never         | `always`   |
+| `--dry-run`             | Prepare state and print the launch command without attaching | —          |
 
 
 ### chat tui:compose
@@ -452,7 +457,7 @@ cd chat && mise trust && mise install
 mise run test
 ```
 
-212 tests across 3 suites, using [BATS](https://github.com/bats-core/bats-core).
+234 tests across 7 suites, using [BATS](https://github.com/bats-core/bats-core) and Python unittest.
 
 <br />
 

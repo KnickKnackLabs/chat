@@ -25,4 +25,5 @@ if ! $has_target; then
   args+=("$TEST_DIR/")
 fi
 
+python3 -m unittest discover -s "$TEST_DIR/tui_render" -p 'test_*.py'
 exec bats "${args[@]}"
