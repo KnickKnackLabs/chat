@@ -1176,6 +1176,21 @@ GUM_MOCK
   chmod +x "$GUM"
 }
 
+_setup_tui_zellij() {
+  export ZELLIJ="$BATS_TEST_TMPDIR/zellij"
+  export ZELLIJ_LOG="$BATS_TEST_TMPDIR/zellij.log"
+  export ZELLIJ_SESSIONS="${1:-}"
+  cat > "$ZELLIJ" <<'ZELLIJ_MOCK'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >> "$ZELLIJ_LOG"
+if [ "$1" = "list-sessions" ]; then
+  [ -z "$ZELLIJ_SESSIONS" ] || printf '%s\n' "$ZELLIJ_SESSIONS"
+fi
+ZELLIJ_MOCK
+  chmod +x "$ZELLIJ"
+}
+
 @test "task tui: --dry-run prepares state without attaching" {
   run chat tui test-chat --as alice --session test-ui --dry-run
   [ "$status" -eq 0 ]
@@ -1184,6 +1199,31 @@ GUM_MOCK
   [[ "$output" == *"command=zellij attach"* ]]
   [ "$(cat "$CHAT_DATA_DIR/.tui/test-ui/channel")" = "test-chat" ]
   [ "$(cat "$CHAT_DATA_DIR/.tui/test-ui/identity")" = "alice" ]
+}
+
+@test "task tui: recreates a session without matching chat install provenance" {
+  _setup_tui_zellij "test-ui"
+  mkdir -p "$CHAT_DATA_DIR/.tui/test-ui"
+
+  run chat tui test-chat --as alice --session test-ui
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"recreating stale zellij session test-ui"* ]]
+  grep -Fxq "kill-session test-ui" "$ZELLIJ_LOG"
+  grep -Fxq "delete-session test-ui" "$ZELLIJ_LOG"
+  grep -Fq "attach --create --forget --force-run-commands test-ui" "$ZELLIJ_LOG"
+  [ "$(cat "$CHAT_DATA_DIR/.tui/test-ui/root")" = "$CHAT_REPO_ROOT" ]
+}
+
+@test "task tui: resumes a session from the current chat install" {
+  _setup_tui_zellij "test-ui"
+  mkdir -p "$CHAT_DATA_DIR/.tui/test-ui"
+  printf '%s\n' "$CHAT_REPO_ROOT" > "$CHAT_DATA_DIR/.tui/test-ui/root"
+
+  run chat tui test-chat --as alice --session test-ui
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"recreating stale zellij session"* ]]
+  ! grep -q "kill-session\|delete-session" "$ZELLIJ_LOG"
+  grep -Fq "attach --create --forget --force-run-commands test-ui" "$ZELLIJ_LOG"
 }
 
 @test "task tui: requires identity" {

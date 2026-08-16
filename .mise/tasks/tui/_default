@@ -40,6 +40,7 @@ no_header_separator="${usage_no_header_separator:-false}"
 message_padding="${usage_message_padding:-2}"
 color="${usage_color:-always}"
 dry_run="${usage_dry_run:-false}"
+zellij="${ZELLIJ:-zellij}"
 
 case "$last" in
   ''|*[!0-9]*) echo "Error: --last must be a non-negative integer (got: $last)" >&2; exit 1 ;;
@@ -76,6 +77,28 @@ fi
 
 safe_session=$(printf '%s' "$session" | tr -c 'A-Za-z0-9_.-' '_')
 state_dir="$CHAT_DATA_DIR/.tui/$safe_session"
+session_root_file="$state_dir/root"
+session_exists=false
+if sessions="$("$zellij" list-sessions --short 2>/dev/null)"; then
+  while IFS= read -r existing_session; do
+    if [ "$existing_session" = "$session" ]; then
+      session_exists=true
+      break
+    fi
+  done <<< "$sessions"
+fi
+
+stale_session=false
+if [ "$session_exists" = "true" ]; then
+  recorded_root=""
+  if [ -f "$session_root_file" ]; then
+    recorded_root="$(cat "$session_root_file")"
+  fi
+  if [ "$recorded_root" != "$MISE_CONFIG_ROOT" ]; then
+    stale_session=true
+  fi
+fi
+
 mkdir -p "$state_dir"
 printf '%s\n' "$CHAT_NAME" > "$state_dir/channel"
 printf '%s\n' "$identity" > "$state_dir/identity"
@@ -100,18 +123,26 @@ if [ "$dry_run" = "true" ]; then
   printf 'state_dir=%s\n' "$state_dir"
   printf 'layout=%s\n' "$layout"
   printf 'pane_tasks=tui:rooms,tui:view,tui:compose\n'
+  printf 'session_exists=%s\n' "$session_exists"
+  printf 'session_stale=%s\n' "$stale_session"
   printf 'command=zellij attach --create --forget --force-run-commands %s options --default-layout %s\n' "$session" "$layout"
   exit 0
 fi
 
+if [ "$stale_session" = "true" ]; then
+  printf 'recreating stale zellij session %s from an unknown or different chat install\n' "$session"
+  fresh=true
+fi
+
 if [ "$fresh" = "true" ]; then
-  if ! zellij kill-session "$session" >/dev/null 2>&1; then
+  if ! "$zellij" kill-session "$session" >/dev/null 2>&1; then
     : # session may not exist yet
   fi
-  if ! zellij delete-session "$session" >/dev/null 2>&1; then
+  if ! "$zellij" delete-session "$session" >/dev/null 2>&1; then
     : # saved session may not exist yet
   fi
 fi
 
+printf '%s\n' "$MISE_CONFIG_ROOT" > "$session_root_file"
 printf 'opening zellij session %s (chat:%s as:%s)\n' "$session" "$CHAT_NAME" "$identity"
-exec zellij attach --create --forget --force-run-commands "$session" options --default-layout "$layout"
+exec "$zellij" attach --create --forget --force-run-commands "$session" options --default-layout "$layout"
