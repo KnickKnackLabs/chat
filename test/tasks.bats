@@ -1180,12 +1180,16 @@ _setup_tui_zellij() {
   export ZELLIJ="$BATS_TEST_TMPDIR/zellij"
   export ZELLIJ_LOG="$BATS_TEST_TMPDIR/zellij.log"
   export ZELLIJ_SESSIONS="${1:-}"
+  export ZELLIJ_LIST_STATUS="${2:-0}"
+  export ZELLIJ_LIST_ERROR="${3:-}"
   cat > "$ZELLIJ" <<'ZELLIJ_MOCK'
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$*" >> "$ZELLIJ_LOG"
 if [ "$1" = "list-sessions" ]; then
   [ -z "$ZELLIJ_SESSIONS" ] || printf '%s\n' "$ZELLIJ_SESSIONS"
+  [ -z "$ZELLIJ_LIST_ERROR" ] || printf '%s\n' "$ZELLIJ_LIST_ERROR" >&2
+  exit "$ZELLIJ_LIST_STATUS"
 fi
 ZELLIJ_MOCK
   chmod +x "$ZELLIJ"
@@ -1224,6 +1228,17 @@ ZELLIJ_MOCK
   [[ "$output" != *"recreating stale zellij session"* ]]
   ! grep -q "kill-session\|delete-session" "$ZELLIJ_LOG"
   grep -Fq "attach --create --forget --force-run-commands test-ui" "$ZELLIJ_LOG"
+}
+
+@test "task tui: fails closed when zellij session inventory fails" {
+  _setup_tui_zellij "" 2 "zellij server unavailable"
+
+  run chat tui test-chat --as alice --session test-ui
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"unable to inspect zellij sessions"* ]]
+  [[ "$output" == *"zellij server unavailable"* ]]
+  ! grep -q "attach\|kill-session\|delete-session" "$ZELLIJ_LOG"
+  [ ! -e "$CHAT_DATA_DIR/.tui/test-ui/root" ]
 }
 
 @test "task tui: requires identity" {

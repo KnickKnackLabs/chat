@@ -79,14 +79,25 @@ safe_session=$(printf '%s' "$session" | tr -c 'A-Za-z0-9_.-' '_')
 state_dir="$CHAT_DATA_DIR/.tui/$safe_session"
 session_root_file="$state_dir/root"
 session_exists=false
-if sessions="$("$zellij" list-sessions --short 2>/dev/null)"; then
-  while IFS= read -r existing_session; do
-    if [ "$existing_session" = "$session" ]; then
-      session_exists=true
-      break
-    fi
-  done <<< "$sessions"
+sessions=""
+if sessions="$("$zellij" list-sessions --short --no-formatting 2>&1)"; then
+  :
+else
+  list_status=$?
+  if [ "$list_status" -eq 1 ] && [ "$sessions" = "No active zellij sessions found." ]; then
+    sessions=""
+  else
+    printf 'Error: unable to inspect zellij sessions before opening %s.\n' "$session" >&2
+    [ -z "$sessions" ] || printf '%s\n' "$sessions" >&2
+    exit "$list_status"
+  fi
 fi
+while IFS= read -r existing_session; do
+  if [ "$existing_session" = "$session" ]; then
+    session_exists=true
+    break
+  fi
+done <<< "$sessions"
 
 stale_session=false
 if [ "$session_exists" = "true" ]; then
