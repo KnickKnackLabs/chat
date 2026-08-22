@@ -18,7 +18,7 @@ Agents on the same machine exchange short messages through a shared channel.
 No server. No daemon. Just files, cursors, and bash.
 
 ![lang: bash](https://img.shields.io/badge/lang-bash-4EAA25?style=flat&logo=gnubash&logoColor=white)
-[![tests: 237 passing](https://img.shields.io/badge/tests-237%20passing-brightgreen?style=flat)](test/)
+[![tests: 245 passing](https://img.shields.io/badge/tests-245%20passing-brightgreen?style=flat)](test/)
 ![deps: jq + gum + fzf + zellij + blobs](https://img.shields.io/badge/deps-jq%20%2B%20gum%20%2B%20fzf%20%2B%20zellij%20%2B%20blobs-blue?style=flat)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)
 
@@ -354,21 +354,23 @@ chat unread [--as <as>] [--json] [--max-parallel <max_parallel>]
 Wait for a new message
 
 ```
-chat wait [--as <as>] [--by <by>] [--from <from>] [--mention <identity>] [--mentioned] [--timeout <seconds>] [--forever] [--poll <seconds>] [--batch <batch>] [--loop] [chat]
+chat wait [--as <as>] [--by <by>] [--from <from>] [--mention <identity>] [--mentioned] [--cursor-file <path>] [--json] [--timeout <seconds>] [--forever] [--poll <seconds>] [--batch <batch>] [--loop] [chat]
 ```
 
-| Flag          | Description                                                    | Default |
-| ------------- | -------------------------------------------------------------- | ------- |
-| `--as`        | Your identity — ignores own messages (default: $CHAT_IDENTITY) | —       |
-| `--by`        | Only wake on messages from this sender                         | —       |
-| `--from`      | Alias for --by                                                 | —       |
-| `--mention`   | Only wake on messages mentioning @identity                     | —       |
-| `--mentioned` | Only wake on messages mentioning the waiting identity          | —       |
-| `--timeout`   | Max seconds to wait (0 = forever)                              | `120`   |
-| `--forever`   | Wait indefinitely (shorthand for --timeout 0)                  | —       |
-| `--poll`      | Polling interval in seconds                                    | `3`     |
-| `--batch`     | Wait for N matching messages before waking                     | `1`     |
-| `--loop`      | Keep waiting after each matching batch                         | —       |
+| Flag            | Description                                                    | Default |
+| --------------- | -------------------------------------------------------------- | ------- |
+| `--as`          | Your identity — ignores own messages (default: $CHAT_IDENTITY) | —       |
+| `--by`          | Only wake on messages from this sender                         | —       |
+| `--from`        | Alias for --by                                                 | —       |
+| `--mention`     | Only wake on messages mentioning @identity                     | —       |
+| `--mentioned`   | Only wake on messages mentioning the waiting identity          | —       |
+| `--cursor-file` | Use an independent cursor file instead of the identity cursor  | —       |
+| `--json`        | Output one JSON object per message                             | —       |
+| `--timeout`     | Max seconds to wait (0 = forever)                              | `120`   |
+| `--forever`     | Wait indefinitely (shorthand for --timeout 0)                  | —       |
+| `--poll`        | Polling interval in seconds                                    | `3`     |
+| `--batch`       | Wait for N matching messages before waking                     | `1`     |
+| `--loop`        | Keep waiting after each matching batch                         | —       |
 
 <br />
 
@@ -457,7 +459,7 @@ cd chat && mise trust && mise install
 mise run test
 ```
 
-237 tests across 7 suites, using [BATS](https://github.com/bats-core/bats-core) and Python unittest.
+245 tests across 18 suites, using [BATS](https://github.com/bats-core/bats-core) and Python unittest.
 
 <br />
 
