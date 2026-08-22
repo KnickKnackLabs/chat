@@ -6,6 +6,7 @@
 #USAGE flag "--from <from>" default="" help="Alias for --by"
 #USAGE flag "--mention <identity>" default="" help="Only wake on messages mentioning @identity"
 #USAGE flag "--mentioned" default=#false help="Only wake on messages mentioning the waiting identity"
+#USAGE flag "--cursor-file <path>" default="" help="Use an independent cursor file instead of the identity cursor"
 #USAGE flag "--timeout <seconds>" default="120" help="Max seconds to wait (0 = forever)"
 #USAGE flag "--forever" default=#false help="Wait indefinitely (shorthand for --timeout 0)"
 #USAGE flag "--poll <seconds>" default="3" help="Polling interval in seconds"
@@ -67,7 +68,57 @@ case "$batch" in
   ''|0|*[!0-9]*) echo "Error: --batch must be a positive integer (got: $batch)" >&2; exit 1 ;;
 esac
 
-if [ -n "$agent" ]; then
+cursor_file="${usage_cursor_file:-}"
+if [ -n "$cursor_file" ]; then
+  case "$cursor_file" in
+    /*) ;;
+    *) cursor_file="${CHAT_CALLER_PWD:-$PWD}/$cursor_file" ;;
+  esac
+  if [ ! -d "$(dirname "$cursor_file")" ]; then
+    echo "Error: cursor file parent does not exist: $(dirname "$cursor_file")" >&2
+    exit 1
+  fi
+  if [ -e "$cursor_file" ] && [ ! -f "$cursor_file" ]; then
+    echo "Error: cursor path is not a regular file: $cursor_file" >&2
+    exit 1
+  fi
+fi
+
+_wait_get_cursor() {
+  if [ -n "$cursor_file" ]; then
+    if [ ! -f "$cursor_file" ]; then
+      echo "0"
+      return
+    fi
+    local value
+    value=$(cat "$cursor_file")
+    case "$value" in
+      ''|*[!0-9]*)
+        echo "Error: invalid cursor in $cursor_file: $value" >&2
+        exit 1
+        ;;
+    esac
+    echo "$value"
+    return
+  fi
+  chat_get_cursor "$agent"
+}
+
+_wait_set_cursor() {
+  local value="$1"
+  if [ -n "$cursor_file" ]; then
+    local temp_file
+    temp_file=$(mktemp "${cursor_file}.tmp.XXXXXX")
+    printf '%s' "$value" > "$temp_file"
+    mv "$temp_file" "$cursor_file"
+    return
+  fi
+  chat_set_cursor "$agent"
+}
+
+if [ -n "$cursor_file" ]; then
+  cursor=$(_wait_get_cursor)
+elif [ -n "$agent" ]; then
   cursor=$(chat_get_cursor "$agent")
 else
   cursor=$(chat_line_count)
@@ -78,7 +129,10 @@ if [ "$cursor" -gt "$total" ]; then
   cursor="$total"
 fi
 
-if [ -n "$agent" ] && [ "$cursor" -eq 0 ]; then
+if [ -n "$cursor_file" ] && [ ! -f "$cursor_file" ]; then
+  cursor="$total"
+  _wait_set_cursor "$cursor"
+elif [ -z "$cursor_file" ] && [ -n "$agent" ] && [ "$cursor" -eq 0 ]; then
   cursor="$total"
   chat_set_cursor "$agent"
 fi
@@ -188,9 +242,9 @@ check_once() {
   new_content=$(tail -n +"$((cursor + 1))" "$CHAT_FILE")
   if _has_enough_messages "$new_content" "$agent" "$by" "$mention" "$batch"; then
     print_wake "$new_content"
-    if [ -n "$agent" ]; then
-      chat_set_cursor "$agent"
-      cursor=$(chat_get_cursor "$agent")
+    if [ -n "$cursor_file" ] || [ -n "$agent" ]; then
+      _wait_set_cursor "$current_lines"
+      cursor=$(_wait_get_cursor)
     else
       cursor="$current_lines"
     fi
@@ -198,9 +252,9 @@ check_once() {
   fi
 
   if [ "$(_count_other_senders "$new_content" "$agent")" -eq 0 ]; then
-    if [ -n "$agent" ]; then
-      chat_set_cursor "$agent"
-      cursor=$(chat_get_cursor "$agent")
+    if [ -n "$cursor_file" ] || [ -n "$agent" ]; then
+      _wait_set_cursor "$current_lines"
+      cursor=$(_wait_get_cursor)
     else
       cursor="$current_lines"
     fi

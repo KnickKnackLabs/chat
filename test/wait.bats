@@ -81,6 +81,68 @@ load test_helper
   [[ "$output" == *"hello @ann, please look"* ]]
 }
 
+@test "task wait: new relative cursor snapshots current chat without advancing identity" {
+  mark_read "alice"
+  local identity_cursor
+  identity_cursor=$(chat_get_cursor "alice")
+  send_message "bob" "existing before independent wait"
+
+  export CHAT_CALLER_PWD="$BATS_TEST_TMPDIR/watcher"
+  mkdir -p "$CHAT_CALLER_PWD"
+
+  run chat wait test-chat --as alice --cursor-file watcher.cursor \
+    --timeout 1 --poll 1
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Timed out"* ]]
+  [ "$(cat "$CHAT_CALLER_PWD/watcher.cursor")" = "$(chat_line_count)" ]
+  [ "$(chat_get_cursor "alice")" = "$identity_cursor" ]
+}
+
+@test "task wait: existing independent cursor resumes and advances after wake" {
+  mark_read "alice"
+  local identity_cursor cursor_file
+  identity_cursor=$(chat_get_cursor "alice")
+  cursor_file="$BATS_TEST_TMPDIR/watcher.cursor"
+  printf '%s' "$(chat_line_count)" > "$cursor_file"
+  send_message "bob" "new after independent cursor"
+
+  run chat wait test-chat --as alice --cursor-file "$cursor_file" \
+    --timeout 1 --poll 1
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"new after independent cursor"* ]]
+  [ "$(cat "$cursor_file")" = "$(chat_line_count)" ]
+  [ "$(chat_get_cursor "alice")" = "$identity_cursor" ]
+}
+
+@test "task wait: explicit zero independent cursor includes existing messages" {
+  local cursor_file="$BATS_TEST_TMPDIR/watcher.cursor"
+  send_message "bob" "existing from cursor zero"
+  printf '0' > "$cursor_file"
+
+  run chat wait test-chat --as alice --cursor-file "$cursor_file" \
+    --timeout 1 --poll 1
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"existing from cursor zero"* ]]
+  [ "$(cat "$cursor_file")" = "$(chat_line_count)" ]
+}
+
+@test "task wait: independent cursor rejects invalid content" {
+  local cursor_file="$BATS_TEST_TMPDIR/watcher.cursor"
+  printf 'invalid' > "$cursor_file"
+
+  run chat wait test-chat --cursor-file "$cursor_file" --timeout 1 --poll 1
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"invalid cursor in $cursor_file"* ]]
+}
+
+@test "task wait: independent cursor requires an existing parent" {
+  local cursor_file="$BATS_TEST_TMPDIR/missing/watcher.cursor"
+
+  run chat wait test-chat --cursor-file "$cursor_file" --timeout 1 --poll 1
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"cursor file parent does not exist"* ]]
+}
+
 @test "task wait: fails on non-existent channel" {
   run chat wait no-such-channel --timeout 1
   [ "$status" -ne 0 ]
