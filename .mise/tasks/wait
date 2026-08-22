@@ -7,6 +7,7 @@
 #USAGE flag "--mention <identity>" default="" help="Only wake on messages mentioning @identity"
 #USAGE flag "--mentioned" default=#false help="Only wake on messages mentioning the waiting identity"
 #USAGE flag "--cursor-file <path>" default="" help="Use an independent cursor file instead of the identity cursor"
+#USAGE flag "--json" default=#false help="Output one JSON object per message"
 #USAGE flag "--timeout <seconds>" default="120" help="Max seconds to wait (0 = forever)"
 #USAGE flag "--forever" default=#false help="Wait indefinitely (shorthand for --timeout 0)"
 #USAGE flag "--poll <seconds>" default="3" help="Polling interval in seconds"
@@ -52,6 +53,7 @@ timeout="${usage_timeout:-120}"
 poll="${usage_poll:-3}"
 batch="${usage_batch:-1}"
 loop="${usage_loop:-false}"
+as_json="${usage_json:-false}"
 
 if [ "${usage_forever:-false}" = "true" ]; then
   timeout=0
@@ -114,6 +116,16 @@ _wait_set_cursor() {
     return
   fi
   chat_set_cursor "$agent"
+}
+
+_advance_cursor() {
+  local value="$1"
+  if [ -n "$cursor_file" ] || [ -n "$agent" ]; then
+    _wait_set_cursor "$value"
+    cursor=$(_wait_get_cursor)
+  else
+    cursor="$value"
+  fi
 }
 
 if [ -n "$cursor_file" ]; then
@@ -228,6 +240,12 @@ _has_enough_messages() {
 
 print_wake() {
   local content="$1"
+  if [ "$as_json" = "true" ]; then
+    uv run --script "$MISE_CONFIG_ROOT/lib/read_query.py" \
+      "$CHAT_FILE" --cursor "$cursor" --json |
+      jq -c '.[] | {sender, timestamp, body}'
+    return
+  fi
   echo "New messages:"
   printf '%s\n' "$content" | chat_format_messages
 }
@@ -242,22 +260,12 @@ check_once() {
   new_content=$(tail -n +"$((cursor + 1))" "$CHAT_FILE")
   if _has_enough_messages "$new_content" "$agent" "$by" "$mention" "$batch"; then
     print_wake "$new_content"
-    if [ -n "$cursor_file" ] || [ -n "$agent" ]; then
-      _wait_set_cursor "$current_lines"
-      cursor=$(_wait_get_cursor)
-    else
-      cursor="$current_lines"
-    fi
+    _advance_cursor "$current_lines"
     return 0
   fi
 
   if [ "$(_count_other_senders "$new_content" "$agent")" -eq 0 ]; then
-    if [ -n "$cursor_file" ] || [ -n "$agent" ]; then
-      _wait_set_cursor "$current_lines"
-      cursor=$(_wait_get_cursor)
-    else
-      cursor="$current_lines"
-    fi
+    _advance_cursor "$current_lines"
   fi
   return 1
 }
@@ -266,11 +274,13 @@ if [ "$cursor" -lt "$total" ] && check_once; then
   [ "$loop" = "true" ] || exit 0
 fi
 
-descriptor="messages in ${CHAT_NAME}"
-[ -n "$agent" ] && descriptor="$descriptor (ignoring own)"
-[ -n "$by" ] && descriptor="$descriptor from $by"
-[ -n "$mention" ] && descriptor="$descriptor mentioning @$mention"
-echo "Waiting for ${descriptor}... (timeout: ${timeout}s)"
+if [ "$as_json" != "true" ]; then
+  descriptor="messages in ${CHAT_NAME}"
+  [ -n "$agent" ] && descriptor="$descriptor (ignoring own)"
+  [ -n "$by" ] && descriptor="$descriptor from $by"
+  [ -n "$mention" ] && descriptor="$descriptor mentioning @$mention"
+  echo "Waiting for ${descriptor}... (timeout: ${timeout}s)"
+fi
 
 elapsed=0
 while true; do
@@ -278,14 +288,15 @@ while true; do
     if [ "$loop" != "true" ]; then
       exit 0
     fi
-    echo ""
-    echo "Waiting for next matching batch..."
+    if [ "$as_json" != "true" ]; then
+      echo ""
+      echo "Waiting for next matching batch..."
+    fi
     elapsed=0
   fi
 
   if [ "$timeout" -gt 0 ] && [ "$elapsed" -ge "$timeout" ]; then
-    echo ""
-    echo "Timed out after ${timeout}s — no matching messages."
+    echo "Timed out after ${timeout}s — no matching messages." >&2
     exit 1
   fi
 

@@ -77,7 +77,6 @@ def main():
                 "timestamp": msg.timestamp_str,
                 "body": msg.body,
                 "preview": msg.preview,
-                "line": msg.line_number,
             }
             if args.id:
                 entry["id"] = msg.id

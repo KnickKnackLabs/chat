@@ -4,6 +4,7 @@
 # API v2: --as replaces --for/--from, implicit identity via $CHAT_IDENTITY,
 # read absorbs check/log/messages, welcome renamed to status.
 
+bats_require_minimum_version 1.5.0
 load test_helper
 
 @test "task wait: --by gates on sender and prints unseen context" {
@@ -124,6 +125,46 @@ load test_helper
   [ "$status" -eq 0 ]
   [[ "$output" == *"existing from cursor zero"* ]]
   [ "$(cat "$cursor_file")" = "$(chat_line_count)" ]
+}
+
+@test "task wait: --json emits one message object per line in order" {
+  local cursor_file="$BATS_TEST_TMPDIR/watcher.cursor"
+  printf '%s' "$(chat_line_count)" > "$cursor_file"
+  send_message "bob" "first JSON message"
+  send_message "or" $'second JSON message\nwith another body line'
+
+  run chat wait test-chat --cursor-file "$cursor_file" --json \
+    --timeout 1 --poll 1
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s\n' "$output" | wc -l | tr -d ' ')" -eq 2 ]
+  [[ "$output" != *"Waiting for"* ]]
+  [[ "$output" != *"New messages"* ]]
+
+  local first second
+  first=$(printf '%s\n' "$output" | sed -n '1p')
+  second=$(printf '%s\n' "$output" | sed -n '2p')
+  jq -e 'keys == ["body", "sender", "timestamp"]' <<< "$first"
+  jq -e '.sender == "bob" and .body == "first JSON message"' <<< "$first"
+  jq -e '.timestamp | test("^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}$")' \
+    <<< "$first"
+  jq -e '.sender == "or" and .body == "second JSON message\nwith another body line"' \
+    <<< "$second"
+}
+
+@test "task wait: --json keeps message shape under --loop" {
+  local cursor_file="$BATS_TEST_TMPDIR/watcher.cursor"
+  printf '%s' "$(chat_line_count)" > "$cursor_file"
+  send_message "bob" "looped JSON message"
+
+  run --separate-stderr chat wait test-chat --cursor-file "$cursor_file" \
+    --json --loop --timeout 1 --poll 1
+  [ "$status" -ne 0 ]
+  [ "$(printf '%s\n' "$output" | wc -l | tr -d ' ')" -eq 1 ]
+  jq -e 'keys == ["body", "sender", "timestamp"]' <<< "$output"
+  jq -e '.sender == "bob" and .body == "looped JSON message"' <<< "$output"
+  [[ "$output" != *"Waiting for"* ]]
+  [[ "$output" != *"New messages"* ]]
+  [[ "$stderr" == *"Timed out after 1s"* ]]
 }
 
 @test "task wait: independent cursor rejects invalid content" {

@@ -72,6 +72,18 @@ load test_helper
   [[ "$output" == *"hello"* ]]
 }
 
+@test "task read: --json omits internal line position" {
+  send_message "bob" "structured hello"
+
+  run chat read test-chat --json
+  [ "$status" -eq 0 ]
+  jq -e 'length == 1' <<< "$output"
+  jq -e '.[0].sender == "bob" and .[0].body == "structured hello"' <<< "$output"
+  jq -e '.[0] | has("line") | not' <<< "$output"
+  jq -e '.[0].timestamp | test("^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}$")' \
+    <<< "$output"
+}
+
 @test "task read: CHAT_IDENTITY env var used when --as omitted" {
   mark_read "alice"
   send_message "bob" "env-identity test"
