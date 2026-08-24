@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Open the compose pane for chat tui"
 #USAGE flag "--dry-run" default=#false help="Print the compose target and exit before opening gum write"
+#USAGE example "mise run tui:compose --dry-run" header="Inspect the compose target without opening the editor"
 set -euo pipefail
 
 root="$MISE_CONFIG_ROOT"

@@ -9,4 +9,4 @@ cd "$MISE_CONFIG_ROOT"
 args=()
 [ "${usage_check:-false}" = "true" ] && args+=(--check)
 
-readme build "${args[@]}"
+readme build ${args[@]+"${args[@]}"}

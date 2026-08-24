@@ -265,7 +265,7 @@ chat status [--as <as>] [--json] [chat]
 Run BATS test suite
 
 ```
-chat test
+chat test [args]
 ```
 
 

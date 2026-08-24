@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Select the active room for chat tui"
 #USAGE flag "--print" default=#false help="Print selectable rooms once instead of opening fzf"
+#USAGE example "mise run tui:rooms --print" header="Print selectable rooms without opening the picker"
 set -euo pipefail
 
 root="$MISE_CONFIG_ROOT"

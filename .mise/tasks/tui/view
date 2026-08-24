@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Render the live message pane for chat tui"
 #USAGE flag "--once" default=#false help="Render once and exit instead of polling"
+#USAGE example "mise run tui:view --once" header="Render the current room once"
 set -euo pipefail
 
 root="$MISE_CONFIG_ROOT"
