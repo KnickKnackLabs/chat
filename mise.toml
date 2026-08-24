@@ -2,6 +2,7 @@
 experimental = true
 quiet = true
 task_output = "interleave"
+aqua.registries = ["https://github.com/KnickKnackLabs/bats-core"]
 
 [plugins]
 shiv = "https://github.com/KnickKnackLabs/vfox-shiv"
@@ -12,20 +13,11 @@ gum = "latest"
 zellij = "0.44.3"
 fzf = "0.73.1"
 uv = "latest"
-bats = "1.13.0"
+"aqua:KnickKnackLabs/bats-core" = "1.14.0-kkl.1"
 "shiv:blobs" = "0.1"
-"shiv:codebase" = "0.3"                    # Codebase linting + migrations
+"shiv:codebase" = "0.4"                    # Codebase linting + migrations
 "shiv:readme" = "0.3"
 
 [_.codebase]
-lint = [
-  "mise-settings",
-  "gum-table",
-  "bats-test-helper",
-  "bats-test-task",
-  "mcr-scope",
-  "or-true",
-  "shellcheck",
-  "caller-pwd-contract",
-  "github-actions",
-]
+name = "chat"
+lint = ["@all"]
