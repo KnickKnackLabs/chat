@@ -1,10 +1,12 @@
 #!/usr/bin/env bats
 
+load test_helper
+
 setup() {
-  CHAT_REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
+  CHAT_DATA_DIR="$BATS_TEST_TMPDIR/chat-data"
   BATS_LOG="$BATS_TEST_TMPDIR/bats.log"
   BATS_COMMAND="$BATS_TEST_TMPDIR/bats"
-  export BATS_LOG BATS_COMMAND
+  export CHAT_DATA_DIR BATS_LOG BATS_COMMAND
 
   cat > "$BATS_COMMAND" <<'SH'
 #!/usr/bin/env bash
@@ -15,7 +17,7 @@ SH
 }
 
 @test "public higher-jobs path uses the declared Rush backend" {
-  run mise run -C "$CHAT_REPO_ROOT" -q test --jobs 2 messages
+  run chat test --jobs 2 messages
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"BATS parallelism: 2 jobs via rush"* ]]
